@@ -120,8 +120,21 @@ export default function App() {
   const handleCopyClipboard = (items) => {
     const itemArray = Array.isArray(items) ? items : [items];
     setClipboardItems(itemArray);
+
+    // Copy direct Cloudinary or share URLs to system clipboard
+    const urls = itemArray.map(ci => {
+      if (ci.isFolder) {
+        return `${window.location.origin}/share/folder/${ci.item.id}`;
+      }
+      return ci.item.cloudinaryUrl || api.getDownloadUrl(ci.item.id, ci.item.storageType === 'SHARED_UPLOADS');
+    }).filter(Boolean);
+
+    if (urls.length > 0) {
+      navigator.clipboard.writeText(urls.join('\n'));
+    }
+
     const count = itemArray.length;
-    showToast(`${count} ${count === 1 ? 'item' : 'items'} copied to clipboard`);
+    showToast(`${count} ${count === 1 ? 'URL' : 'URLs'} copied to clipboard!`);
   };
 
   const handleCancelCopy = () => {
