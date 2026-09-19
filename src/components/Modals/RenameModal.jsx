@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { X, Edit2 } from 'lucide-react';
+import { X, Edit2, Lock, Globe } from 'lucide-react';
 
 export default function RenameModal({ item, isFolder, onClose, onSubmit }) {
   const [name, setName] = useState(isFolder ? item.name : item.originalFilename);
+  const [visibility, setVisibility] = useState(item.visibility || 'PRIVATE');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -14,10 +15,10 @@ export default function RenameModal({ item, isFolder, onClose, onSubmit }) {
     setError('');
 
     try {
-      await onSubmit(item, name.trim(), isFolder);
+      await onSubmit(item, name.trim(), isFolder, visibility);
       onClose();
     } catch (err) {
-      setError(err.message || 'Rename failed');
+      setError(err.message || 'Edit failed');
     } finally {
       setLoading(false);
     }
@@ -29,7 +30,7 @@ export default function RenameModal({ item, isFolder, onClose, onSubmit }) {
         <div className="modal-header">
           <div className="modal-title">
             <Edit2 size={20} />
-            <h3>Rename {isFolder ? 'Folder' : 'File'}</h3>
+            <h3>Edit {isFolder ? 'Folder' : 'File'}</h3>
           </div>
           <button className="modal-close" onClick={onClose}>
             <X size={18} />
@@ -40,8 +41,8 @@ export default function RenameModal({ item, isFolder, onClose, onSubmit }) {
 
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
-            <div className="form-group">
-              <label>New Name</label>
+            <div className="form-group mb-3">
+              <label>Name</label>
               <input
                 type="text"
                 value={name}
@@ -50,6 +51,37 @@ export default function RenameModal({ item, isFolder, onClose, onSubmit }) {
                 required
               />
             </div>
+
+            {isFolder && (
+              <div className="form-group">
+                <label>Folder Visibility</label>
+                <div className="destination-options mt-1">
+                  <button
+                    type="button"
+                    className={`dest-option ${visibility === 'PRIVATE' ? 'active' : ''}`}
+                    onClick={() => setVisibility('PRIVATE')}
+                  >
+                    <Lock size={18} />
+                    <div>
+                      <strong>Private</strong>
+                      <p>Only you can see this folder</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`dest-option ${visibility === 'PUBLIC' ? 'active' : ''}`}
+                    onClick={() => setVisibility('PUBLIC')}
+                  >
+                    <Globe size={18} />
+                    <div>
+                      <strong>Public / Shareable</strong>
+                      <p>Anyone with link can view</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="modal-footer">

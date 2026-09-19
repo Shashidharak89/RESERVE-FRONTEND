@@ -87,19 +87,24 @@ export const api = {
   },
 
   // Folder APIs
-  async createFolder(name, parentId = null) {
+  async createFolder(name, parentId = null, visibility = 'PRIVATE') {
     const res = await fetch(`${API_BASE_URL}/folders`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ name, parentId }),
+      body: JSON.stringify({ name, parentId, visibility }),
     });
     return await handleResponse(res);
   },
 
-  async getFolders(parentId = null) {
-    const url = parentId 
-      ? `${API_BASE_URL}/folders?parentId=${parentId}`
-      : `${API_BASE_URL}/folders`;
+  async getFolders(parentId = null, keyword = '', order = 3, page = 1, limit = 20) {
+    const params = new URLSearchParams();
+    if (parentId) params.append('parentId', parentId);
+    if (keyword) params.append('keyword', keyword);
+    if (order) params.append('order', order);
+    if (page) params.append('page', page);
+    if (limit) params.append('limit', limit);
+
+    const url = `${API_BASE_URL}/folders?${params.toString()}`;
     const res = await fetch(url, { headers: getAuthHeaders() });
     return await handleResponse(res);
   },
@@ -111,11 +116,23 @@ export const api = {
     return await handleResponse(res);
   },
 
-  async renameFolder(folderId, name) {
+  async getPublicFolderDetails(folderId) {
+    const headers = {};
+    const token = this.getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const res = await fetch(`${API_BASE_URL}/folders/public/${folderId}`, { headers });
+    return await handleResponse(res);
+  },
+
+  async renameFolder(folderId, name, visibility = null) {
+    const body = { name };
+    if (visibility) body.visibility = visibility;
     const res = await fetch(`${API_BASE_URL}/folders/${folderId}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(body),
     });
     return await handleResponse(res);
   },
@@ -153,13 +170,18 @@ export const api = {
     return await handleResponse(res);
   },
 
-  async getPrivateFiles(folderId = null, search = '') {
-    let url = `${API_BASE_URL}/files`;
+  async getPrivateFiles(folderId = null, search = '', order = 3, page = 1, limit = 20) {
     const params = new URLSearchParams();
     if (folderId) params.append('folderId', folderId);
-    if (search) params.append('search', search);
-    if (params.toString()) url += `?${params.toString()}`;
+    if (search) {
+      params.append('search', search);
+      params.append('keyword', search);
+    }
+    if (order) params.append('order', order);
+    if (page) params.append('page', page);
+    if (limit) params.append('limit', limit);
 
+    const url = `${API_BASE_URL}/files?${params.toString()}`;
     const res = await fetch(url, { headers: getAuthHeaders() });
     return await handleResponse(res);
   },
@@ -177,7 +199,7 @@ export const api = {
     const res = await fetch(`${API_BASE_URL}/files/${fileId}/move`, {
       method: 'PUT',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ targetFolderId }),
+      body: JSON.stringify({ targetParentId: targetFolderId }),
     });
     return await handleResponse(res);
   },
@@ -217,10 +239,17 @@ export const api = {
     return await handleResponse(res);
   },
 
-  async getSharedFiles(search = '') {
-    let url = `${API_BASE_URL}/uploads`;
-    if (search) url += `?search=${encodeURIComponent(search)}`;
+  async getSharedFiles(search = '', order = 3, page = 1, limit = 20) {
+    const params = new URLSearchParams();
+    if (search) {
+      params.append('search', search);
+      params.append('keyword', search);
+    }
+    if (order) params.append('order', order);
+    if (page) params.append('page', page);
+    if (limit) params.append('limit', limit);
 
+    const url = `${API_BASE_URL}/uploads?${params.toString()}`;
     const headers = {};
     const token = this.getToken();
     if (token) {

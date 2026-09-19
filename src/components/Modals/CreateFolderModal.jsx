@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { X, FolderPlus } from 'lucide-react';
+import { X, FolderPlus, Lock, Globe } from 'lucide-react';
 
 export default function CreateFolderModal({ onClose, onSubmit }) {
   const [folderName, setFolderName] = useState('');
+  const [visibility, setVisibility] = useState('PRIVATE');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -14,7 +15,7 @@ export default function CreateFolderModal({ onClose, onSubmit }) {
     setError('');
 
     try {
-      await onSubmit(folderName.trim());
+      await onSubmit(folderName.trim(), visibility);
       onClose();
     } catch (err) {
       setError(err.message || 'Failed to create folder');
@@ -40,7 +41,7 @@ export default function CreateFolderModal({ onClose, onSubmit }) {
 
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
-            <div className="form-group">
+            <div className="form-group mb-3">
               <label>Folder Name</label>
               <input
                 type="text"
@@ -50,6 +51,35 @@ export default function CreateFolderModal({ onClose, onSubmit }) {
                 autoFocus
                 required
               />
+            </div>
+
+            <div className="form-group">
+              <label>Folder Visibility</label>
+              <div className="destination-options mt-1">
+                <button
+                  type="button"
+                  className={`dest-option ${visibility === 'PRIVATE' ? 'active' : ''}`}
+                  onClick={() => setVisibility('PRIVATE')}
+                >
+                  <Lock size={18} />
+                  <div>
+                    <strong>Private (Default)</strong>
+                    <p>Only you can see this folder</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  className={`dest-option ${visibility === 'PUBLIC' ? 'active' : ''}`}
+                  onClick={() => setVisibility('PUBLIC')}
+                >
+                  <Globe size={18} />
+                  <div>
+                    <strong>Public / Shareable</strong>
+                    <p>Anyone with link can view</p>
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
 

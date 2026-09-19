@@ -15,7 +15,9 @@ import {
   FolderInput,
   Trash2,
   Share2,
-  Copy
+  Copy,
+  Globe,
+  Lock
 } from 'lucide-react';
 import { api } from '../../services/api';
 
@@ -27,7 +29,9 @@ export default function ItemCard({
   onPreview,
   onRename,
   onMove,
+  onCopy,
   onDelete,
+  onShareLink,
   isShared = false
 }) {
   const [showMenu, setShowMenu] = useState(false);
@@ -82,6 +86,20 @@ export default function ItemCard({
     }
   };
 
+  const handleCopyShareLink = (e) => {
+    e.stopPropagation();
+    setShowMenu(false);
+    const link = `${window.location.origin}/share/folder/${item.id}`;
+    navigator.clipboard.writeText(link);
+    if (onShareLink) {
+      onShareLink(link);
+    } else {
+      alert(`Public share link copied to clipboard:\n${link}`);
+    }
+  };
+
+  const canEdit = !isShared || item.isOwner === true;
+
   if (viewMode === 'list') {
     return (
       <div
@@ -91,6 +109,12 @@ export default function ItemCard({
         <div className="row-main">
           {isFolder ? <Folder size={22} className="icon-folder" /> : getFileIcon(item)}
           <span className="item-name">{isFolder ? item.name : item.originalFilename}</span>
+          {isFolder && (
+            <span className={`visibility-badge ${item.visibility === 'PUBLIC' ? 'public' : 'private'}`}>
+              {item.visibility === 'PUBLIC' ? <Globe size={12} /> : <Lock size={12} />}
+              {item.visibility === 'PUBLIC' ? 'Public' : 'Private'}
+            </span>
+          )}
         </div>
 
         <div className="row-meta">
@@ -101,7 +125,7 @@ export default function ItemCard({
           <span className="item-date">{formatDate(item.createdAt)}</span>
         </div>
 
-        <div className="row-actions" ref={menuRef}>
+        <div className="row-actions" ref={menuRef} onClick={(e) => e.stopPropagation()}>
           <button
             className="action-btn"
             onClick={(e) => {
@@ -113,10 +137,10 @@ export default function ItemCard({
           </button>
 
           {showMenu && (
-            <div className="context-menu">
+            <div className="context-menu" onClick={(e) => e.stopPropagation()}>
               {!isFolder && (
                 <>
-                  <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onPreview(item); }}>
+                  <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onPreview && onPreview(item); }}>
                     <Eye size={15} /> Preview
                   </button>
                   <button className="menu-item" onClick={handleDownload}>
@@ -125,27 +149,40 @@ export default function ItemCard({
                 </>
               )}
               {isFolder && (
-                <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onOpenFolder(item); }}>
-                  <Folder size={15} /> Open Folder
-                </button>
+                <>
+                  <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onOpenFolder(item); }}>
+                    <Folder size={15} /> Open Folder
+                  </button>
+                  {item.visibility === 'PUBLIC' && (
+                    <button className="menu-item" onClick={handleCopyShareLink}>
+                      <Share2 size={15} /> Copy Share Link
+                    </button>
+                  )}
+                </>
               )}
               {isShared && !isFolder && onCopy && (
                 <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onCopy(item); }}>
                   <Copy size={15} /> Copy to Vault
                 </button>
               )}
-              {!isShared && (
+              {canEdit && (
                 <>
-                  <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onRename(item, isFolder); }}>
-                    <Edit2 size={15} /> Rename
-                  </button>
-                  <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onMove(item, isFolder); }}>
-                    <FolderInput size={15} /> Move
-                  </button>
                   <div className="menu-divider"></div>
-                  <button className="menu-item text-danger" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onDelete(item, isFolder); }}>
-                    <Trash2 size={15} /> Delete
-                  </button>
+                  {onRename && (
+                    <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onRename(item, isFolder); }}>
+                      <Edit2 size={15} /> Rename
+                    </button>
+                  )}
+                  {onMove && (
+                    <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onMove(item, isFolder); }}>
+                      <FolderInput size={15} /> Move
+                    </button>
+                  )}
+                  {onDelete && (
+                    <button className="menu-item text-danger" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onDelete(item, isFolder); }}>
+                      <Trash2 size={15} /> Delete
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -162,10 +199,15 @@ export default function ItemCard({
       onClick={() => (isFolder ? onOpenFolder(item) : onPreview && onPreview(item))}
     >
       <div className="card-top">
-        <div className="card-icon">
+        <div className="card-icon-container">
           {isFolder ? <Folder size={36} className="icon-folder" /> : getFileIcon(item)}
+          {isFolder && (
+            <span className={`badge-pill ${item.visibility === 'PUBLIC' ? 'public' : 'private'}`} title={item.visibility}>
+              {item.visibility === 'PUBLIC' ? <Globe size={11} /> : <Lock size={11} />}
+            </span>
+          )}
         </div>
-        <div className="card-menu-wrapper" ref={menuRef}>
+        <div className="card-menu-wrapper" ref={menuRef} onClick={(e) => e.stopPropagation()}>
           <button
             className="card-menu-btn"
             onClick={(e) => {
@@ -177,10 +219,10 @@ export default function ItemCard({
           </button>
 
           {showMenu && (
-            <div className="context-menu">
+            <div className="context-menu" onClick={(e) => e.stopPropagation()}>
               {!isFolder && (
                 <>
-                  <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onPreview(item); }}>
+                  <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onPreview && onPreview(item); }}>
                     <Eye size={15} /> Preview
                   </button>
                   <button className="menu-item" onClick={handleDownload}>
@@ -189,27 +231,40 @@ export default function ItemCard({
                 </>
               )}
               {isFolder && (
-                <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onOpenFolder(item); }}>
-                  <Folder size={15} /> Open
-                </button>
+                <>
+                  <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onOpenFolder(item); }}>
+                    <Folder size={15} /> Open
+                  </button>
+                  {item.visibility === 'PUBLIC' && (
+                    <button className="menu-item" onClick={handleCopyShareLink}>
+                      <Share2 size={15} /> Copy Share Link
+                    </button>
+                  )}
+                </>
               )}
               {isShared && !isFolder && onCopy && (
                 <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onCopy(item); }}>
                   <Copy size={15} /> Copy to Vault
                 </button>
               )}
-              {!isShared && (
+              {canEdit && (
                 <>
-                  <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onRename(item, isFolder); }}>
-                    <Edit2 size={15} /> Rename
-                  </button>
-                  <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onMove(item, isFolder); }}>
-                    <FolderInput size={15} /> Move
-                  </button>
                   <div className="menu-divider"></div>
-                  <button className="menu-item text-danger" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onDelete(item, isFolder); }}>
-                    <Trash2 size={15} /> Delete
-                  </button>
+                  {onRename && (
+                    <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onRename(item, isFolder); }}>
+                      <Edit2 size={15} /> Rename
+                    </button>
+                  )}
+                  {onMove && (
+                    <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onMove(item, isFolder); }}>
+                      <FolderInput size={15} /> Move
+                    </button>
+                  )}
+                  {onDelete && (
+                    <button className="menu-item text-danger" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onDelete(item, isFolder); }}>
+                      <Trash2 size={15} /> Delete
+                    </button>
+                  )}
                 </>
               )}
             </div>
