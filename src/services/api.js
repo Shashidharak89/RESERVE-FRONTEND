@@ -197,11 +197,13 @@ export const api = {
     return await handleResponse(res);
   },
 
-  async renameFile(fileId, name) {
+  async renameFile(fileId, name, storageType = null) {
+    const body = { name };
+    if (storageType) body.storageType = storageType;
     const res = await fetch(`${API_BASE_URL}/files/${fileId}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(body),
     });
     return await handleResponse(res);
   },

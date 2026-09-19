@@ -33,7 +33,9 @@ export default function ItemCard({
   onCopyClipboard,
   onDelete,
   onShareLink,
-  isShared = false
+  isShared = false,
+  isSelected = false,
+  onToggleSelect
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
@@ -104,10 +106,22 @@ export default function ItemCard({
   if (viewMode === 'list') {
     return (
       <div
-        className={`item-row ${isFolder ? 'folder-row' : 'file-row'}`}
+        className={`item-row ${isFolder ? 'folder-row' : 'file-row'} ${isSelected ? 'selected' : ''}`}
         onClick={() => (isFolder ? onOpenFolder(item) : onPreview && onPreview(item))}
       >
         <div className="row-main">
+          {onToggleSelect && (
+            <input
+              type="checkbox"
+              className="item-checkbox"
+              checked={isSelected}
+              onChange={(e) => {
+                e.stopPropagation();
+                onToggleSelect(item, isFolder);
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
           {isFolder ? <Folder size={22} className="icon-folder" /> : getFileIcon(item)}
           <span className="item-name">{isFolder ? item.name : item.originalFilename}</span>
           {isFolder && (
@@ -201,10 +215,24 @@ export default function ItemCard({
   // Grid view
   return (
     <div
-      className={`item-card ${isFolder ? 'folder-card' : 'file-card'}`}
+      className={`item-card ${isFolder ? 'folder-card' : 'file-card'} ${isSelected ? 'selected' : ''}`}
       onClick={() => (isFolder ? onOpenFolder(item) : onPreview && onPreview(item))}
     >
       <div className="card-top">
+        <div className="card-select-icon">
+          {onToggleSelect && (
+            <input
+              type="checkbox"
+              className="item-checkbox"
+              checked={isSelected}
+              onChange={(e) => {
+                e.stopPropagation();
+                onToggleSelect(item, isFolder);
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
+        </div>
         <div className="card-icon-container">
           {isFolder ? <Folder size={36} className="icon-folder" /> : getFileIcon(item)}
           {isFolder && (

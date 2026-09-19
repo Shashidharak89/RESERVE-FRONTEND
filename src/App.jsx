@@ -29,7 +29,7 @@ export default function App() {
 
   // Sorting & Clipboard state
   const [sortOrder, setSortOrder] = useState(3); // 1: Name ASC, 2: Name DESC, 3: Date DESC (default), 4: Date ASC
-  const [clipboardItem, setClipboardItem] = useState(null); // { item, isFolder }
+  const [clipboardItems, setClipboardItems] = useState(null); // array of { item, isFolder }
 
   // Vault data state
   const [currentFolder, setCurrentFolder] = useState(null);
@@ -117,33 +117,61 @@ export default function App() {
   };
 
   // Clipboard Copy & Paste handlers inside directories
-  const handleCopyClipboard = (item, isFolder) => {
-    setClipboardItem({ item, isFolder });
-    const name = isFolder ? item.name : item.originalFilename;
-    showToast(`Copied "${name}" to clipboard`);
+  const handleCopyClipboard = (items) => {
+    const itemArray = Array.isArray(items) ? items : [items];
+    setClipboardItems(itemArray);
+    const count = itemArray.length;
+    showToast(`${count} ${count === 1 ? 'item' : 'items'} copied to clipboard`);
+  };
+
+  const handleCancelCopy = () => {
+    setClipboardItems(null);
+    showToast('Clipboard cleared', 'info');
   };
 
   const handlePaste = async () => {
-    if (!clipboardItem) return;
+    if (!clipboardItems || clipboardItems.length === 0) return;
     if (!isAuthenticated) {
       setModalType('auth');
       return;
     }
 
     const targetParentId = currentFolder ? currentFolder.id : null;
-    const { item, isFolder } = clipboardItem;
+    let count = 0;
 
     try {
-      if (isFolder) {
-        await api.copyFolder(item.id, targetParentId);
-        showToast(`Pasted folder "${item.name}" into current directory`);
-      } else {
-        await api.copySharedFile(item.id, targetParentId);
-        showToast(`Pasted file "${item.originalFilename}" into current directory`);
+      for (const ci of clipboardItems) {
+        if (ci.isFolder) {
+          await api.copyFolder(ci.item.id, targetParentId);
+        } else {
+          await api.copySharedFile(ci.item.id, targetParentId);
+        }
+        count++;
       }
+      showToast(`Pasted ${count} ${count === 1 ? 'item' : 'items'} into current directory`);
       window.dispatchEvent(new CustomEvent('reload-contents'));
     } catch (err) {
       showToast(err.message || 'Paste operation failed', 'error');
+    }
+  };
+
+  const handleBulkDelete = async (items) => {
+    if (!items || items.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${items.length} selected item(s)?`)) return;
+    let count = 0;
+    try {
+      for (const ci of items) {
+        if (ci.isFolder) {
+          await api.deleteFolder(ci.item.id);
+        } else {
+          await api.deleteFile(ci.item.id);
+        }
+        count++;
+      }
+      showToast(`Deleted ${count} item(s) from Cloudinary & Database`);
+      window.dispatchEvent(new CustomEvent('reload-contents'));
+    } catch (err) {
+      showToast(err.message || 'Bulk delete failed', 'error');
     }
   };
 
@@ -169,8 +197,8 @@ export default function App() {
       await api.renameFolder(item.id, newName, visibility);
       showToast(`Folder updated successfully`);
     } else {
-      await api.renameFile(item.id, newName);
-      showToast(`File renamed to "${newName}"`);
+      await api.renameFile(item.id, newName, visibility);
+      showToast(`File updated successfully`);
     }
     window.dispatchEvent(new CustomEvent('reload-contents'));
   };
@@ -271,8 +299,9 @@ export default function App() {
                   setSortOrder={setSortOrder}
                   viewMode={viewMode}
                   activeTab={activeTab}
-                  clipboardItem={clipboardItem}
+                  clipboardItems={clipboardItems}
                   onPaste={handlePaste}
+                  onCancelCopy={handleCancelCopy}
                   setFileStats={setFileStats}
                   onPreview={(item) => { setActiveItem(item); setModalType('preview'); }}
                   onCopy={handleCopy}
@@ -295,8 +324,10 @@ export default function App() {
                   setSortOrder={setSortOrder}
                   viewMode={viewMode}
                   activeTab={activeTab}
-                  clipboardItem={clipboardItem}
+                  clipboardItems={clipboardItems}
                   onPaste={handlePaste}
+                  onCancelCopy={handleCancelCopy}
+                  onBulkDelete={handleBulkDelete}
                   setCurrentFolder={setCurrentFolder}
                   setFolderPath={setFolderPath}
                   folderPath={folderPath}
@@ -328,8 +359,10 @@ export default function App() {
                   setSortOrder={setSortOrder}
                   viewMode={viewMode}
                   activeTab={activeTab}
-                  clipboardItem={clipboardItem}
+                  clipboardItems={clipboardItems}
                   onPaste={handlePaste}
+                  onCancelCopy={handleCancelCopy}
+                  onBulkDelete={handleBulkDelete}
                   setCurrentFolder={setCurrentFolder}
                   setFolderPath={setFolderPath}
                   folderPath={folderPath}
@@ -359,8 +392,9 @@ export default function App() {
                   sortOrder={sortOrder}
                   setSortOrder={setSortOrder}
                   viewMode={viewMode}
-                  clipboardItem={clipboardItem}
+                  clipboardItems={clipboardItems}
                   onPaste={handlePaste}
+                  onCancelCopy={handleCancelCopy}
                   onOpenFolder={handleOpenFolder}
                   onNavigateBreadcrumb={handleNavigateBreadcrumb}
                   onPreview={(item) => { setActiveItem(item); setModalType('preview'); }}
@@ -478,8 +512,9 @@ function SharedUploadsView({
   setSortOrder,
   viewMode,
   activeTab,
-  clipboardItem,
+  clipboardItems,
   onPaste,
+  onCancelCopy,
   setFileStats,
   onPreview,
   onCopy,
@@ -561,8 +596,9 @@ function SharedUploadsView({
         searchQuery={searchQuery}
         sortOrder={sortOrder}
         setSortOrder={setSortOrder}
-        clipboardItem={clipboardItem}
+        clipboardItems={clipboardItems}
         onPaste={onPaste}
+        onCancelCopy={onCancelCopy}
         onPreview={onPreview}
         onCopy={onCopy}
         onCopyClipboard={onCopyClipboard}
@@ -581,8 +617,10 @@ function PrivateVaultView({
   setSortOrder,
   viewMode,
   activeTab,
-  clipboardItem,
+  clipboardItems,
   onPaste,
+  onCancelCopy,
+  onBulkDelete,
   setCurrentFolder,
   setFolderPath,
   folderPath,
@@ -730,8 +768,10 @@ function PrivateVaultView({
         searchQuery={searchQuery}
         sortOrder={sortOrder}
         setSortOrder={setSortOrder}
-        clipboardItem={clipboardItem}
+        clipboardItems={clipboardItems}
         onPaste={onPaste}
+        onCancelCopy={onCancelCopy}
+        onBulkDelete={onBulkDelete}
         onOpenFolder={onOpenFolder}
         onPreview={onPreview}
         onRename={onRename}
@@ -753,8 +793,9 @@ function PublicFolderShareView({
   sortOrder,
   setSortOrder,
   viewMode,
-  clipboardItem,
+  clipboardItems,
   onPaste,
+  onCancelCopy,
   onOpenFolder,
   onNavigateBreadcrumb,
   onPreview,
@@ -830,8 +871,9 @@ function PublicFolderShareView({
         searchQuery={searchQuery}
         sortOrder={sortOrder}
         setSortOrder={setSortOrder}
-        clipboardItem={clipboardItem}
+        clipboardItems={clipboardItems}
         onPaste={onPaste}
+        onCancelCopy={onCancelCopy}
         onOpenFolder={onOpenFolder}
         onPreview={onPreview}
         onCopy={onCopy}

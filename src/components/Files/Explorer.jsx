@@ -1,6 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import ItemCard from './ItemCard';
-import { Folder, File, FolderPlus, Upload, SearchX, ArrowUpDown, ClipboardPaste, ChevronDown } from 'lucide-react';
+import { 
+  Folder, 
+  File, 
+  FolderPlus, 
+  Upload, 
+  SearchX, 
+  ArrowUpDown, 
+  ClipboardPaste, 
+  ChevronDown,
+  Copy,
+  Trash2,
+  XCircle,
+  CheckSquare,
+  X
+} from 'lucide-react';
 
 export default function Explorer({
   folders = [],
@@ -14,8 +28,9 @@ export default function Explorer({
   searchQuery = '',
   sortOrder = 3,
   setSortOrder,
-  clipboardItem = null,
+  clipboardItems = null,
   onPaste,
+  onCancelCopy,
   onOpenFolder,
   onPreview,
   onRename,
@@ -25,10 +40,66 @@ export default function Explorer({
   onCopyClipboard,
   onShareLink,
   onOpenNewFolder,
-  onOpenUpload
+  onOpenUpload,
+  onBulkDelete
 }) {
   const isShared = activeTab === 'shared';
   const hasItems = (folders && folders.length > 0) || (files && files.length > 0);
+
+  // Multi-select state: array of keys `${isFolder ? 'folder' : 'file'}-${item.id}`
+  const [selectedKeys, setSelectedKeys] = useState([]);
+
+  const totalVisibleItems = folders.length + files.length;
+  const isAllSelected = totalVisibleItems > 0 && selectedKeys.length === totalVisibleItems;
+
+  const handleToggleSelect = (item, isFolder) => {
+    const key = `${isFolder ? 'folder' : 'file'}-${item.id}`;
+    setSelectedKeys(prev => 
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedKeys([]);
+    } else {
+      const folderKeys = folders.map(f => `folder-${f.id}`);
+      const fileKeys = files.map(f => `file-${f.id}`);
+      setSelectedKeys([...folderKeys, ...fileKeys]);
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedKeys([]);
+  };
+
+  const getSelectedObjects = () => {
+    const selectedFolders = folders
+      .filter(f => selectedKeys.includes(`folder-${f.id}`))
+      .map(f => ({ item: f, isFolder: true }));
+    const selectedFiles = files
+      .filter(f => selectedKeys.includes(`file-${f.id}`))
+      .map(f => ({ item: f, isFolder: false }));
+    return [...selectedFolders, ...selectedFiles];
+  };
+
+  const handleBulkCopyAction = () => {
+    const itemsToCopy = getSelectedObjects();
+    if (itemsToCopy.length === 0) return;
+    if (onCopyClipboard) {
+      onCopyClipboard(itemsToCopy);
+    }
+    setSelectedKeys([]);
+  };
+
+  const handleBulkDeleteAction = () => {
+    const itemsToDelete = getSelectedObjects();
+    if (itemsToDelete.length === 0) return;
+    if (onBulkDelete) {
+      onBulkDelete(itemsToDelete);
+    }
+    setSelectedKeys([]);
+  };
 
   if (loading) {
     return (
@@ -41,19 +112,43 @@ export default function Explorer({
 
   return (
     <div className="explorer-container">
-      {/* Controls Bar: Sort order selector & Clipboard paste button */}
+      {/* Controls Bar */}
       <div className="explorer-toolbar">
         <div className="toolbar-info">
-          <span className="items-count">
-            {folders.length + files.length} items
-          </span>
+          {hasItems && (
+            <label className="select-all-label" title="Select All Items">
+              <input
+                type="checkbox"
+                className="item-checkbox"
+                checked={isAllSelected}
+                onChange={handleSelectAll}
+              />
+              <span className="items-count">
+                {folders.length + files.length} items
+              </span>
+            </label>
+          )}
 
-          {/* Paste button when an item is copied */}
-          {clipboardItem && onPaste && (
-            <button className="btn-primary paste-btn" onClick={onPaste}>
-              <ClipboardPaste size={16} />
-              <span>Paste "{clipboardItem.item.name || clipboardItem.item.originalFilename}"</span>
-            </button>
+          {/* Paste & Cancel Copy buttons */}
+          {clipboardItems && clipboardItems.length > 0 && (
+            <div className="clipboard-actions-group">
+              {onPaste && (
+                <button className="btn-primary paste-btn" onClick={onPaste}>
+                  <ClipboardPaste size={16} />
+                  <span>Paste ({clipboardItems.length} {clipboardItems.length === 1 ? 'item' : 'items'})</span>
+                </button>
+              )}
+              {onCancelCopy && (
+                <button 
+                  className="btn-secondary cancel-copy-btn" 
+                  onClick={onCancelCopy}
+                  title="Cancel copied items"
+                >
+                  <XCircle size={16} />
+                  <span>Cancel Copy</span>
+                </button>
+              )}
+            </div>
           )}
         </div>
 
@@ -75,6 +170,32 @@ export default function Explorer({
           </div>
         </div>
       </div>
+
+      {/* Floating / Sticky Multi-Selection Action Bar */}
+      {selectedKeys.length > 0 && (
+        <div className="multi-select-bar">
+          <div className="multi-select-info">
+            <CheckSquare size={18} />
+            <span><strong>{selectedKeys.length}</strong> {selectedKeys.length === 1 ? 'item' : 'items'} selected</span>
+          </div>
+          <div className="multi-select-actions">
+            <button className="btn-secondary" onClick={handleBulkCopyAction}>
+              <Copy size={16} />
+              <span>Copy Selected ({selectedKeys.length})</span>
+            </button>
+            {!isShared && onBulkDelete && (
+              <button className="btn-danger" onClick={handleBulkDeleteAction}>
+                <Trash2 size={16} />
+                <span>Delete Selected ({selectedKeys.length})</span>
+              </button>
+            )}
+            <button className="btn-icon-text" onClick={handleClearSelection}>
+              <X size={16} />
+              <span>Clear</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {!hasItems ? (
         <div className="explorer-empty">
@@ -125,12 +246,14 @@ export default function Explorer({
                     item={folder}
                     isFolder={true}
                     viewMode={viewMode}
+                    isSelected={selectedKeys.includes(`folder-${folder.id}`)}
+                    onToggleSelect={handleToggleSelect}
                     onOpenFolder={onOpenFolder}
                     onRename={onRename}
                     onMove={onMove}
                     onDelete={onDelete}
                     onCopy={onCopy}
-                    onCopyClipboard={onCopyClipboard}
+                    onCopyClipboard={(item, isFolder) => onCopyClipboard && onCopyClipboard([{ item, isFolder }])}
                     onShareLink={onShareLink}
                     isShared={isShared}
                   />
@@ -150,12 +273,14 @@ export default function Explorer({
                     item={file}
                     isFolder={false}
                     viewMode={viewMode}
+                    isSelected={selectedKeys.includes(`file-${file.id}`)}
+                    onToggleSelect={handleToggleSelect}
                     onPreview={onPreview}
                     onRename={onRename}
                     onMove={onMove}
                     onDelete={onDelete}
                     onCopy={onCopy}
-                    onCopyClipboard={onCopyClipboard}
+                    onCopyClipboard={(item, isFolder) => onCopyClipboard && onCopyClipboard([{ item, isFolder }])}
                     onShareLink={onShareLink}
                     isShared={isShared}
                   />
@@ -190,3 +315,4 @@ export default function Explorer({
     </div>
   );
 }
+

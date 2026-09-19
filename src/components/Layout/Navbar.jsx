@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   FolderGit2, 
   Search, 
@@ -27,6 +28,7 @@ export default function Navbar({
   onToggleMobileSidebar
 }) {
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     api.logout();
@@ -38,7 +40,12 @@ export default function Navbar({
         <button className="btn-icon mobile-menu-toggle" onClick={onToggleMobileSidebar}>
           <Menu size={20} />
         </button>
-        <div className="navbar-brand">
+        <div 
+          className="navbar-brand" 
+          onClick={() => navigate('/')} 
+          style={{ cursor: 'pointer' }}
+          title="Go to Home Screen"
+        >
           <img src="/Reserve-logo.png" alt="Reserve Logo" className="brand-logo-img" />
           <span className="brand-name">Reserve</span>
           <span className="badge-tag">Vault</span>

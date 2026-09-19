@@ -3,7 +3,9 @@ import { X, Edit2, Lock, Globe } from 'lucide-react';
 
 export default function RenameModal({ item, isFolder, onClose, onSubmit }) {
   const [name, setName] = useState(isFolder ? item.name : item.originalFilename);
-  const [visibility, setVisibility] = useState(item.visibility || 'PRIVATE');
+  const [visibility, setVisibility] = useState(
+    isFolder ? (item.visibility || 'PRIVATE') : (item.storageType || 'PRIVATE')
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -52,36 +54,34 @@ export default function RenameModal({ item, isFolder, onClose, onSubmit }) {
               />
             </div>
 
-            {isFolder && (
-              <div className="form-group">
-                <label>Folder Visibility</label>
-                <div className="destination-options mt-1">
-                  <button
-                    type="button"
-                    className={`dest-option ${visibility === 'PRIVATE' ? 'active' : ''}`}
-                    onClick={() => setVisibility('PRIVATE')}
-                  >
-                    <Lock size={18} />
-                    <div>
-                      <strong>Private</strong>
-                      <p>Only you can see this folder</p>
-                    </div>
-                  </button>
+            <div className="form-group mt-3">
+              <label>{isFolder ? 'Folder Accessibility & Visibility' : 'File Accessibility & Visibility'}</label>
+              <div className="destination-options mt-1">
+                <button
+                  type="button"
+                  className={`dest-option ${visibility === 'PRIVATE' ? 'active' : ''}`}
+                  onClick={() => setVisibility('PRIVATE')}
+                >
+                  <Lock size={18} />
+                  <div>
+                    <strong>Private</strong>
+                    <p>{isFolder ? 'Only you can see this folder' : 'Only you can access this file in your vault'}</p>
+                  </div>
+                </button>
 
-                  <button
-                    type="button"
-                    className={`dest-option ${visibility === 'PUBLIC' ? 'active' : ''}`}
-                    onClick={() => setVisibility('PUBLIC')}
-                  >
-                    <Globe size={18} />
-                    <div>
-                      <strong>Public / Shareable</strong>
-                      <p>Anyone with link can view</p>
-                    </div>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className={`dest-option ${(visibility === 'PUBLIC' || visibility === 'SHARED_UPLOADS') ? 'active' : ''}`}
+                  onClick={() => setVisibility(isFolder ? 'PUBLIC' : 'SHARED_UPLOADS')}
+                >
+                  <Globe size={18} />
+                  <div>
+                    <strong>Public / Shareable</strong>
+                    <p>{isFolder ? 'Anyone with link can view' : 'Visible in Public Shared Uploads'}</p>
+                  </div>
+                </button>
               </div>
-            )}
+            </div>
           </div>
 
           <div className="modal-footer">

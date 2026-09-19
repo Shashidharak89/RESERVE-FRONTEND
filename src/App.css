@@ -1638,3 +1638,101 @@ body {
   letter-spacing: 0.5px;
 }
 
+/* Multi-Select & Selection Styling */
+.item-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--color-dark);
+}
+
+.select-all-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.card-select-icon {
+  display: flex;
+  align-items: center;
+  margin-right: auto;
+}
+
+.item-card.selected, .item-row.selected {
+  border-color: var(--color-dark) !important;
+  background-color: rgba(46, 52, 76, 0.05) !important;
+  box-shadow: 0 0 0 2px var(--color-dark) !important;
+}
+
+/* Clipboard Group & Cancel Button */
+.clipboard-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cancel-copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background-color: #fee2e2 !important;
+  color: #dc2626 !important;
+  border-color: #fca5a5 !important;
+}
+
+.cancel-copy-btn:hover {
+  background-color: #fca5a5 !important;
+  color: #991b1b !important;
+}
+
+/* Multi-Select Bar */
+.multi-select-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--color-dark);
+  color: #ffffff;
+  padding: 0.75rem 1.25rem;
+  border-radius: 12px;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 4px 14px rgba(46, 52, 76, 0.25);
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.multi-select-info {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+}
+
+.multi-select-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.btn-icon-text {
+  background: none;
+  border: none;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  opacity: 0.85;
+  transition: opacity 0.15s ease;
+}
+
+.btn-icon-text:hover {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+
