@@ -1,8 +1,10 @@
 import { api } from './api';
 
 export function uploadFileViaWebSocket(file, { isShared = false, folderId = null, onProgress, onComplete, onError }) {
-  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsHost = import.meta.env.VITE_WS_URL || `${wsProtocol}//${window.location.hostname}:8080/ws/upload`;
+  const rawBackendUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const cleanBackendUrl = rawBackendUrl.replace(/\/+$/, '').replace(/\/api$/, '');
+  const wsProtocol = cleanBackendUrl.startsWith('https') ? 'wss:' : 'ws:';
+  const wsHost = import.meta.env.VITE_WS_URL || cleanBackendUrl.replace(/^https?:/, wsProtocol) + '/ws/upload';
   const socket = new WebSocket(wsHost);
 
   const uploadId = `upload-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

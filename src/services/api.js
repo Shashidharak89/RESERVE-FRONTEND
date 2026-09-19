@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+const rawBackendUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const cleanBackendUrl = rawBackendUrl.replace(/\/+$/, '').replace(/\/api$/, '');
+export const API_BASE_URL = `${cleanBackendUrl}/api`;
 
 const getAuthHeaders = (isMultipart = false) => {
   const token = localStorage.getItem('reserve_token');
