@@ -11,7 +11,8 @@ import {
   User as UserIcon,
   X,
   Menu,
-  LogIn
+  LogIn,
+  Sliders
 } from 'lucide-react';
 import { api } from '../../services/api';
 
@@ -25,7 +26,7 @@ export default function Navbar({
   onOpenNewFolder,
   onOpenAuth,
   activeTab,
-  onToggleMobileSidebar
+  onToggleRightSidebar
 }) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const navigate = useNavigate();
@@ -37,9 +38,6 @@ export default function Navbar({
   return (
     <header className="navbar">
       <div className="navbar-left">
-        <button className="btn-icon mobile-menu-toggle" onClick={onToggleMobileSidebar}>
-          <Menu size={20} />
-        </button>
         <div 
           className="navbar-brand" 
           onClick={() => navigate('/')} 
@@ -129,6 +127,16 @@ export default function Navbar({
             <span className="btn-text">Sign In / Register</span>
           </button>
         )}
+
+        {/* Right Corner Sidebar Toggle Button */}
+        <button 
+          className="btn-secondary sidebar-toggle-btn" 
+          onClick={onToggleRightSidebar}
+          title="Open Storage Categories & Stats"
+        >
+          <Sliders size={18} />
+          <span className="btn-text">Storage</span>
+        </button>
       </div>
     </header>
   );
