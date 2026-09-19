@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { X, Upload, File, Share2, Lock, CheckCircle2, Zap } from 'lucide-react';
 import { uploadFileViaWebSocket } from '../../services/websocketUpload';
+import { api } from '../../services/api';
 
 export default function UploadFileModal({ onClose, onUploadSuccess, currentFolder, initialShared = false }) {
+  const token = api.getToken();
+  const isLoggedIn = !!token;
+
+  // If user is not logged in, force public shared storage mode
   const [file, setFile] = useState(null);
-  const [isShared, setIsShared] = useState(initialShared);
+  const [isShared, setIsShared] = useState(!isLoggedIn ? true : initialShared);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [dragActive, setDragActive] = useState(false);
@@ -83,7 +88,7 @@ export default function UploadFileModal({ onClose, onUploadSuccess, currentFolde
         setTimeout(() => {
           if (onUploadSuccess) onUploadSuccess(fileResponse, isShared);
           onClose();
-        }, 600);
+        }, 500);
       },
       onError: (errMessage) => {
         setError(errMessage);
@@ -118,13 +123,16 @@ export default function UploadFileModal({ onClose, onUploadSuccess, currentFolde
                 <button
                   type="button"
                   className={`dest-option ${!isShared ? 'active' : ''}`}
-                  onClick={() => setIsShared(false)}
-                  disabled={uploading}
+                  onClick={() => {
+                    if (isLoggedIn) setIsShared(false);
+                  }}
+                  disabled={uploading || !isLoggedIn}
+                  style={{ opacity: !isLoggedIn ? 0.5 : 1 }}
                 >
                   <Lock size={18} />
                   <div>
-                    <strong>Private Vault</strong>
-                    <p>{currentFolder ? `Uploading to: ${currentFolder.name}` : 'Uploading to My Files root'}</p>
+                    <strong>Private Vault {!isLoggedIn && '(Log in required)'}</strong>
+                    <p>{!isLoggedIn ? 'Sign in to save files to your private folders' : (currentFolder ? `Uploading to: ${currentFolder.name}` : 'Uploading to My Files root')}</p>
                   </div>
                 </button>
 
@@ -137,7 +145,7 @@ export default function UploadFileModal({ onClose, onUploadSuccess, currentFolde
                   <Share2 size={18} />
                   <div>
                     <strong>Public Shared Area</strong>
-                    <p>Visible to all registered users</p>
+                    <p>Visible to all users (No login required)</p>
                   </div>
                 </button>
               </div>
@@ -164,7 +172,7 @@ export default function UploadFileModal({ onClose, onUploadSuccess, currentFolde
                       <Upload size={32} />
                     </div>
                     <p className="drop-title">Drag & drop your file here, or click to browse</p>
-                    <p className="drop-sub">Chunked WebSocket Upload with Real-Time Progress</p>
+                    <p className="drop-sub">Chunked WebSocket Upload with Live Progress Bar</p>
                   </label>
                 ) : (
                   <div className="selected-file-info">

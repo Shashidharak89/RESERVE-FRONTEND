@@ -7,8 +7,13 @@ export function uploadFileViaWebSocket(file, { isShared = false, folderId = null
 
   const uploadId = `upload-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const token = api.getToken();
-  const chunkSize = 128 * 1024; // 128 KB chunk size for smooth progress updates
+
+  // Target ~30 chunks to ensure smooth 3%, 7%, 10%, 15%... progress animation for any file size
+  const targetChunksCount = 30;
+  const chunkSize = Math.max(8 * 1024, Math.floor(file.size / targetChunksCount));
   const totalChunks = Math.ceil(file.size / chunkSize);
+
+  let currentChunkIndex = 0;
 
   socket.onopen = () => {
     // Send INIT_UPLOAD message
@@ -30,8 +35,8 @@ export function uploadFileViaWebSocket(file, { isShared = false, folderId = null
       const message = JSON.parse(event.data);
 
       if (message.type === 'INIT_ACK') {
-        // Start sending chunks sequentially
-        sendChunks(0);
+        // Start sending the first chunk
+        sendChunk(0);
       } else if (message.type === 'PROGRESS') {
         if (onProgress) {
           onProgress({
@@ -42,6 +47,12 @@ export function uploadFileViaWebSocket(file, { isShared = false, folderId = null
             totalChunks: message.totalChunks,
             status: message.status
           });
+        }
+
+        // Send next chunk upon server ACK progress
+        const nextIndex = message.chunkIndex + 1;
+        if (nextIndex < totalChunks) {
+          setTimeout(() => sendChunk(nextIndex), 25);
         }
       } else if (message.type === 'COMPLETE') {
         if (onProgress) {
@@ -69,14 +80,15 @@ export function uploadFileViaWebSocket(file, { isShared = false, folderId = null
     }
   };
 
-  socket.onerror = (err) => {
-    if (onError) onError('WebSocket connection error. Please check server status.');
+  socket.onerror = () => {
+    if (onError) onError('WebSocket connection error. Please verify server status.');
   };
 
-  const sendChunks = async (currentChunk) => {
-    if (currentChunk >= totalChunks) return;
+  const sendChunk = (chunkIndex) => {
+    if (chunkIndex >= totalChunks || socket.readyState !== WebSocket.OPEN) return;
 
-    const start = currentChunk * chunkSize;
+    currentChunkIndex = chunkIndex;
+    const start = chunkIndex * chunkSize;
     const end = Math.min(file.size, start + chunkSize);
     const chunkBlob = file.slice(start, end);
 
@@ -90,17 +102,12 @@ export function uploadFileViaWebSocket(file, { isShared = false, folderId = null
       const chunkMessage = {
         type: 'UPLOAD_CHUNK',
         uploadId,
-        chunkIndex: currentChunk,
+        chunkIndex,
         totalChunks,
         data: base64Data
       };
 
       socket.send(JSON.stringify(chunkMessage));
-
-      // Schedule next chunk
-      if (currentChunk + 1 < totalChunks) {
-        setTimeout(() => sendChunks(currentChunk + 1), 10);
-      }
     };
 
     reader.readAsArrayBuffer(chunkBlob);
