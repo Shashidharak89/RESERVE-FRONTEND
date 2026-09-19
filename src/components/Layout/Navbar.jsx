@@ -8,7 +8,9 @@ import {
   List, 
   LogOut, 
   User as UserIcon,
-  X
+  X,
+  Menu,
+  LogIn
 } from 'lucide-react';
 import { api } from '../../services/api';
 
@@ -20,7 +22,9 @@ export default function Navbar({
   setViewMode,
   onOpenUpload,
   onOpenNewFolder,
-  activeTab
+  onOpenAuth,
+  activeTab,
+  onToggleMobileSidebar
 }) {
   const [showUserMenu, setShowUserMenu] = useState(false);
 
@@ -30,12 +34,15 @@ export default function Navbar({
 
   return (
     <header className="navbar">
-      <div className="navbar-brand">
-        <div className="brand-logo">
-          <FolderGit2 size={24} />
+      <div className="navbar-left">
+        <button className="btn-icon mobile-menu-toggle" onClick={onToggleMobileSidebar}>
+          <Menu size={20} />
+        </button>
+        <div className="navbar-brand">
+          <img src="/Reserve-logo.png" alt="Reserve Logo" className="brand-logo-img" />
+          <span className="brand-name">Reserve</span>
+          <span className="badge-tag">Vault</span>
         </div>
-        <span className="brand-name">Reserve</span>
-        <span className="badge-tag">Vault</span>
       </div>
 
       <div className="navbar-search">
@@ -54,7 +61,7 @@ export default function Navbar({
       </div>
 
       <div className="navbar-actions">
-        {activeTab === 'private' && (
+        {user && activeTab === 'private' && (
           <button className="btn-secondary" onClick={onOpenNewFolder}>
             <FolderPlus size={18} />
             <span className="btn-text">New Folder</span>
@@ -83,31 +90,38 @@ export default function Navbar({
           </button>
         </div>
 
-        <div className="user-profile-wrapper">
-          <button
-            className="user-profile-btn"
-            onClick={() => setShowUserMenu(!showUserMenu)}
-          >
-            <div className="avatar">
-              {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
-            </div>
-            <span className="user-name-label">{user?.name}</span>
-          </button>
-
-          {showUserMenu && (
-            <div className="user-menu-dropdown">
-              <div className="user-info-header">
-                <p className="u-name">{user?.name}</p>
-                <p className="u-email">{user?.email}</p>
+        {user ? (
+          <div className="user-profile-wrapper">
+            <button
+              className="user-profile-btn"
+              onClick={() => setShowUserMenu(!showUserMenu)}
+            >
+              <div className="avatar">
+                {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
               </div>
-              <div className="menu-divider"></div>
-              <button className="menu-item text-danger" onClick={handleLogout}>
-                <LogOut size={16} />
-                <span>Log Out</span>
-              </button>
-            </div>
-          )}
-        </div>
+              <span className="user-name-label">{user?.name}</span>
+            </button>
+
+            {showUserMenu && (
+              <div className="user-menu-dropdown">
+                <div className="user-info-header">
+                  <p className="u-name">{user?.name}</p>
+                  <p className="u-email">{user?.email}</p>
+                </div>
+                <div className="menu-divider"></div>
+                <button className="menu-item text-danger" onClick={handleLogout}>
+                  <LogOut size={16} />
+                  <span>Log Out</span>
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <button className="btn-secondary" onClick={onOpenAuth}>
+            <LogIn size={18} />
+            <span className="btn-text">Sign In / Register</span>
+          </button>
+        )}
       </div>
     </header>
   );

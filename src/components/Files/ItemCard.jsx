@@ -14,7 +14,8 @@ import {
   Edit2,
   FolderInput,
   Trash2,
-  Share2
+  Share2,
+  Copy
 } from 'lucide-react';
 import { api } from '../../services/api';
 
@@ -128,6 +129,11 @@ export default function ItemCard({
                   <Folder size={15} /> Open Folder
                 </button>
               )}
+              {isShared && !isFolder && onCopy && (
+                <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onCopy(item); }}>
+                  <Copy size={15} /> Copy to Vault
+                </button>
+              )}
               {!isShared && (
                 <>
                   <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onRename(item, isFolder); }}>
@@ -185,6 +191,11 @@ export default function ItemCard({
               {isFolder && (
                 <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onOpenFolder(item); }}>
                   <Folder size={15} /> Open
+                </button>
+              )}
+              {isShared && !isFolder && onCopy && (
+                <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onCopy(item); }}>
+                  <Copy size={15} /> Copy to Vault
                 </button>
               )}
               {!isShared && (

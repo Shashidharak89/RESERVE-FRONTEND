@@ -34,7 +34,7 @@ export default function AuthModal({ onAuthSuccess }) {
       <div className="auth-card">
         <div className="auth-header">
           <div className="auth-logo">
-            <FolderGit2 className="logo-icon" size={32} />
+            <img src="/Reserve-logo.png" alt="Reserve Logo" className="auth-logo-img" />
             <span className="logo-title">Reserve</span>
           </div>
           <h2>{isLogin ? 'Welcome Back' : 'Create Account'}</h2>

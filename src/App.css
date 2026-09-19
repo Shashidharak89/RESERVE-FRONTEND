@@ -312,15 +312,18 @@ body {
   gap: 0.75rem;
 }
 
-.brand-logo {
-  width: 40px;
-  height: 40px;
-  background-color: var(--color-dark);
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
+.brand-logo-img {
+  height: 38px;
+  width: auto;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.auth-logo-img {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
+  margin-bottom: 0.25rem;
 }
 
 .brand-name {
@@ -1225,3 +1228,138 @@ body {
   background-color: var(--color-dark);
   color: #ffffff;
 }
+
+/* Home Hero Banner */
+.home-hero-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1.5rem 2rem;
+  margin-bottom: 1.75rem;
+  box-shadow: 0 4px 16px rgba(46, 52, 76, 0.05);
+}
+
+.hero-content h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--color-dark);
+}
+
+.hero-content p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+}
+
+.hero-upload-btn {
+  white-space: nowrap;
+}
+
+.mobile-menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--color-dark);
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.sidebar-header-mobile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mobile-close-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--color-dark);
+  cursor: pointer;
+}
+
+/* Responsiveness */
+@media (max-width: 992px) {
+  .navbar-search {
+    width: 260px;
+  }
+  .grid-container {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .mobile-menu-toggle {
+    display: flex;
+  }
+  .mobile-close-btn {
+    display: flex;
+  }
+  .navbar {
+    padding: 0 1rem;
+  }
+  .navbar-search {
+    display: none;
+  }
+  .btn-text {
+    display: none;
+  }
+  
+  .app-main-content {
+    position: relative;
+  }
+  
+  .sidebar {
+    position: fixed;
+    top: 70px;
+    left: -280px;
+    bottom: 0;
+    width: 280px;
+    z-index: 500;
+    transition: left 0.3s ease;
+    box-shadow: 10px 0 30px rgba(46, 52, 76, 0.15);
+  }
+  
+  .sidebar.mobile-open {
+    left: 0;
+  }
+  
+  .sidebar-backdrop {
+    position: fixed;
+    top: 70px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(46, 52, 76, 0.4);
+    backdrop-filter: blur(4px);
+    z-index: 499;
+  }
+  
+  .main-viewport {
+    padding: 1rem;
+  }
+  
+  .home-hero-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1.25rem;
+  }
+  
+  .hero-upload-btn {
+    width: 100%;
+  }
+
+  .grid-container {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.875rem;
+  }
+
+  .destination-options {
+    grid-template-columns: 1fr;
+  }
+}
+

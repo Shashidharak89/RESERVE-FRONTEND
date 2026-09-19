@@ -196,7 +196,15 @@ export const api = {
     return `${API_BASE_URL}/${endpoint}`;
   },
 
-  // Shared Upload APIs
+  async copySharedFile(fileId, targetFolderId = null) {
+    const res = await fetch(`${API_BASE_URL}/files/copy/${fileId}`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ targetFolderId }),
+    });
+    return await handleResponse(res);
+  },
+
   async uploadSharedFile(file) {
     const formData = new FormData();
     formData.append('file', file);
@@ -213,7 +221,13 @@ export const api = {
     let url = `${API_BASE_URL}/uploads`;
     if (search) url += `?search=${encodeURIComponent(search)}`;
 
-    const res = await fetch(url, { headers: getAuthHeaders() });
+    const headers = {};
+    const token = this.getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(url, { headers });
     return await handleResponse(res);
   },
 };

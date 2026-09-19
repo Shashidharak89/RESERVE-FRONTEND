@@ -8,9 +8,11 @@ import CreateFolderModal from './components/Modals/CreateFolderModal';
 import UploadFileModal from './components/Modals/UploadFileModal';
 import RenameModal from './components/Modals/RenameModal';
 import MoveModal from './components/Modals/MoveModal';
+import CopyModal from './components/Modals/CopyModal';
 import PreviewModal from './components/Modals/PreviewModal';
 import DeleteConfirmModal from './components/Modals/DeleteConfirmModal';
 import { api } from './services/api';
+import { Upload, Share2, ShieldCheck, Sparkles, Folder } from 'lucide-react';
 import './App.css';
 
 export default function App() {
@@ -19,7 +21,7 @@ export default function App() {
   const [authChecking, setAuthChecking] = useState(true);
 
   // Explorer state
-  const [activeTab, setActiveTab] = useState('private'); // 'private' | 'shared'
+  const [activeTab, setActiveTab] = useState('shared'); // 'shared' (Home) | 'private'
   const [currentFolder, setCurrentFolder] = useState(null); // null means root
   const [folderPath, setFolderPath] = useState([]);
   const [folders, setFolders] = useState([]);
@@ -28,9 +30,10 @@ export default function App() {
   const [viewMode, setViewMode] = useState('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [fileStats, setFileStats] = useState({ totalFiles: 0, totalSize: 0 });
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Modals state
-  const [modalType, setModalType] = useState(null); // 'createFolder'|'uploadFile'|'rename'|'move'|'preview'|'delete'
+  const [modalType, setModalType] = useState(null); // 'createFolder'|'uploadFile'|'rename'|'move'|'copy'|'preview'|'delete'|'auth'
   const [activeItem, setActiveItem] = useState(null);
   const [activeIsFolder, setActiveIsFolder] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
@@ -43,9 +46,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      loadContents();
-    }
+    loadContents();
   }, [isAuthenticated, activeTab, currentFolder, searchQuery]);
 
   const checkAuth = async () => {
@@ -74,6 +75,12 @@ export default function App() {
     setLoading(true);
     try {
       if (activeTab === 'private') {
+        if (!isAuthenticated) {
+          setFolders([]);
+          setFiles([]);
+          setLoading(false);
+          return;
+        }
         const folderId = currentFolder ? currentFolder.id : null;
         const [foldersData, filesData] = await Promise.all([
           searchQuery ? [] : api.getFolders(folderId),
@@ -82,14 +89,13 @@ export default function App() {
         setFolders(foldersData || []);
         setFiles(filesData || []);
 
-        // Calculate stats
         const totalSize = (filesData || []).reduce((acc, curr) => acc + (curr.fileSize || 0), 0);
         setFileStats({
           totalFiles: (filesData || []).length + (foldersData || []).length,
           totalSize
         });
       } else {
-        // Shared Uploads area
+        // Shared Uploads area (Public / Home)
         const sharedFiles = await api.getSharedFiles(searchQuery);
         setFolders([]);
         setFiles(sharedFiles || []);
@@ -134,6 +140,10 @@ export default function App() {
   };
 
   const handleTabChange = (tab) => {
+    if (tab === 'private' && !isAuthenticated) {
+      setModalType('auth');
+      return;
+    }
     setActiveTab(tab);
     setCurrentFolder(null);
     setFolderPath([]);
@@ -142,6 +152,10 @@ export default function App() {
 
   // Modal Handlers
   const handleCreateFolder = async (folderName) => {
+    if (!isAuthenticated) {
+      setModalType('auth');
+      return;
+    }
     const parentId = currentFolder ? currentFolder.id : null;
     await api.createFolder(folderName, parentId);
     showToast(`Folder "${folderName}" created`);
@@ -153,6 +167,10 @@ export default function App() {
       await api.uploadSharedFile(file);
       showToast(`File "${file.name}" uploaded to Shared Uploads area`);
     } else {
+      if (!isAuthenticated) {
+        setModalType('auth');
+        return;
+      }
       const folderId = currentFolder ? currentFolder.id : null;
       await api.uploadPrivateFile(file, folderId);
       showToast(`File "${file.name}" uploaded to Private Vault`);
@@ -182,13 +200,23 @@ export default function App() {
     loadContents();
   };
 
+  const handleCopy = async (item, targetFolderId) => {
+    if (!isAuthenticated) {
+      setModalType('auth');
+      return;
+    }
+    await api.copySharedFile(item.id, targetFolderId);
+    showToast(`Copied "${item.originalFilename}" to your private vault`);
+    if (activeTab === 'private') loadContents();
+  };
+
   const handleDelete = async (item, isFolder) => {
     if (isFolder) {
       await api.deleteFolder(item.id);
-      showToast(`Folder "${item.name}" deleted`);
+      showToast(`Folder "${item.name}" and all nested contents deleted from Cloudinary & Database`);
     } else {
       await api.deleteFile(item.id);
-      showToast(`File "${item.originalFilename}" deleted`);
+      showToast(`File "${item.originalFilename}" deleted from Cloudinary & Database`);
     }
     loadContents();
   };
@@ -202,10 +230,6 @@ export default function App() {
     );
   }
 
-  if (!isAuthenticated) {
-    return <AuthModal onAuthSuccess={() => checkAuth()} />;
-  }
-
   return (
     <div className="app-layout">
       <Navbar
@@ -215,8 +239,13 @@ export default function App() {
         viewMode={viewMode}
         setViewMode={setViewMode}
         onOpenUpload={() => setModalType('uploadFile')}
-        onOpenNewFolder={() => setModalType('createFolder')}
+        onOpenNewFolder={() => {
+          if (!isAuthenticated) setModalType('auth');
+          else setModalType('createFolder');
+        }}
+        onOpenAuth={() => setModalType('auth')}
         activeTab={activeTab}
+        onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
       />
 
       <div className="app-main-content">
@@ -224,6 +253,8 @@ export default function App() {
           activeTab={activeTab}
           setActiveTab={handleTabChange}
           fileStats={fileStats}
+          isOpenMobile={isMobileSidebarOpen}
+          onCloseMobile={() => setIsMobileSidebarOpen(false)}
         />
 
         <main className="main-viewport">
@@ -235,9 +266,15 @@ export default function App() {
           )}
 
           {activeTab === 'shared' && (
-            <div className="shared-header-banner">
-              <h2>Shared Uploads Area</h2>
-              <p>Files uploaded here are publicly accessible to all registered users of Reserve.</p>
+            <div className="home-hero-banner">
+              <div className="hero-content">
+                <h2>Public Uploads & Shared Vault</h2>
+                <p>Upload files instantly to Cloudinary. Accessible to everyone, copyable to your private folders.</p>
+              </div>
+              <button className="btn-primary hero-upload-btn" onClick={() => setModalType('uploadFile')}>
+                <Upload size={18} />
+                <span>Upload to Public Vault</span>
+              </button>
             </div>
           )}
 
@@ -263,18 +300,33 @@ export default function App() {
               setActiveIsFolder(isFolder);
               setModalType('move');
             }}
+            onCopy={(item) => {
+              if (!isAuthenticated) {
+                setModalType('auth');
+                return;
+              }
+              setActiveItem(item);
+              setModalType('copy');
+            }}
             onDelete={(item, isFolder) => {
               setActiveItem(item);
               setActiveIsFolder(isFolder);
               setModalType('delete');
             }}
-            onOpenNewFolder={() => setModalType('createFolder')}
+            onOpenNewFolder={() => {
+              if (!isAuthenticated) setModalType('auth');
+              else setModalType('createFolder');
+            }}
             onOpenUpload={() => setModalType('uploadFile')}
           />
         </main>
       </div>
 
       {/* Modals */}
+      {modalType === 'auth' && (
+        <AuthModal onAuthSuccess={() => { setModalType(null); checkAuth(); }} />
+      )}
+
       {modalType === 'createFolder' && (
         <CreateFolderModal
           onClose={() => setModalType(null)}
@@ -306,6 +358,14 @@ export default function App() {
           isFolder={activeIsFolder}
           onClose={() => { setModalType(null); setActiveItem(null); }}
           onSubmit={handleMove}
+        />
+      )}
+
+      {modalType === 'copy' && activeItem && (
+        <CopyModal
+          item={activeItem}
+          onClose={() => { setModalType(null); setActiveItem(null); }}
+          onSubmit={handleCopy}
         />
       )}
 

@@ -14,6 +14,7 @@ export default function Explorer({
   onRename,
   onMove,
   onDelete,
+  onCopy,
   onOpenNewFolder,
   onOpenUpload
 }) {
@@ -108,6 +109,7 @@ export default function Explorer({
                 onRename={onRename}
                 onMove={onMove}
                 onDelete={onDelete}
+                onCopy={onCopy}
                 isShared={isShared}
               />
             ))}
