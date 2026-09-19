@@ -27,17 +27,13 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  // Sorting & Pagination state
+  // Sorting & Clipboard state
   const [sortOrder, setSortOrder] = useState(3); // 1: Name ASC, 2: Name DESC, 3: Date DESC (default), 4: Date ASC
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
+  const [clipboardItem, setClipboardItem] = useState(null); // { item, isFolder }
 
   // Vault data state
   const [currentFolder, setCurrentFolder] = useState(null);
   const [folderPath, setFolderPath] = useState([]);
-  const [folders, setFolders] = useState([]);
-  const [files, setFiles] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [fileStats, setFileStats] = useState({ totalFiles: 0, totalSize: 0 });
 
   // Modals state
@@ -99,7 +95,6 @@ export default function App() {
       navigate('/shared');
     }
     setSearchQuery('');
-    setPage(1);
   };
 
   const handleOpenFolder = (folder) => {
@@ -109,7 +104,6 @@ export default function App() {
       navigate(`/folder/${folder.id}`);
     }
     setSearchQuery('');
-    setPage(1);
   };
 
   const handleNavigateBreadcrumb = (targetFolder) => {
@@ -120,7 +114,37 @@ export default function App() {
       navigate(`/folder/${targetFolder.id}`);
     }
     setSearchQuery('');
-    setPage(1);
+  };
+
+  // Clipboard Copy & Paste handlers inside directories
+  const handleCopyClipboard = (item, isFolder) => {
+    setClipboardItem({ item, isFolder });
+    const name = isFolder ? item.name : item.originalFilename;
+    showToast(`Copied "${name}" to clipboard`);
+  };
+
+  const handlePaste = async () => {
+    if (!clipboardItem) return;
+    if (!isAuthenticated) {
+      setModalType('auth');
+      return;
+    }
+
+    const targetParentId = currentFolder ? currentFolder.id : null;
+    const { item, isFolder } = clipboardItem;
+
+    try {
+      if (isFolder) {
+        await api.copyFolder(item.id, targetParentId);
+        showToast(`Pasted folder "${item.name}" into current directory`);
+      } else {
+        await api.copySharedFile(item.id, targetParentId);
+        showToast(`Pasted file "${item.originalFilename}" into current directory`);
+      }
+      window.dispatchEvent(new CustomEvent('reload-contents'));
+    } catch (err) {
+      showToast(err.message || 'Paste operation failed', 'error');
+    }
   };
 
   // Modal actions
@@ -135,19 +159,8 @@ export default function App() {
     window.dispatchEvent(new CustomEvent('reload-contents'));
   };
 
-  const handleUploadFile = async (file, isSharedTarget) => {
-    if (isSharedTarget) {
-      await api.uploadSharedFile(file);
-      showToast(`File "${file.name}" uploaded to Shared Uploads area`);
-    } else {
-      if (!isAuthenticated) {
-        setModalType('auth');
-        return;
-      }
-      const folderId = currentFolder ? currentFolder.id : null;
-      await api.uploadPrivateFile(file, folderId);
-      showToast(`File "${file.name}" uploaded to Private Vault`);
-    }
+  const handleUploadFileSuccess = (fileResponse, isSharedTarget) => {
+    showToast(`File "${fileResponse?.originalFilename || 'File'}" uploaded successfully via WebSocket!`);
     window.dispatchEvent(new CustomEvent('reload-contents'));
   };
 
@@ -173,14 +186,25 @@ export default function App() {
     window.dispatchEvent(new CustomEvent('reload-contents'));
   };
 
-  const handleCopy = async (item, targetFolderId) => {
+  // Copy public folder/file into private vault (recursive for folders)
+  const handleCopy = async (item, isFolder) => {
     if (!isAuthenticated) {
       setModalType('auth');
       return;
     }
-    await api.copySharedFile(item.id, targetFolderId);
-    showToast(`Copied "${item.originalFilename}" to your private vault`);
-    window.dispatchEvent(new CustomEvent('reload-contents'));
+    try {
+      const targetFolderId = currentFolder ? currentFolder.id : null;
+      if (isFolder) {
+        await api.copyFolder(item.id, targetFolderId);
+        showToast(`Public folder "${item.name}" & all subfolders/files copied to your private vault`);
+      } else {
+        await api.copySharedFile(item.id, targetFolderId);
+        showToast(`Copied "${item.originalFilename}" to your private vault`);
+      }
+      window.dispatchEvent(new CustomEvent('reload-contents'));
+    } catch (err) {
+      showToast(err.message || 'Copy failed', 'error');
+    }
   };
 
   const handleDelete = async (item, isFolder) => {
@@ -232,30 +256,10 @@ export default function App() {
 
         <main className="main-viewport">
           <Routes>
+            {/* Landing Route /: Redirects logged-in users to /my-files, unauthenticated users to /shared */}
             <Route
               path="/"
-              element={
-                <SharedUploadsView
-                  searchQuery={searchQuery}
-                  sortOrder={sortOrder}
-                  setSortOrder={setSortOrder}
-                  page={page}
-                  setPage={setPage}
-                  limit={limit}
-                  setLimit={setLimit}
-                  viewMode={viewMode}
-                  activeTab={activeTab}
-                  setFileStats={setFileStats}
-                  onPreview={(item) => { setActiveItem(item); setModalType('preview'); }}
-                  onCopy={(item) => {
-                    if (!isAuthenticated) setModalType('auth');
-                    else { setActiveItem(item); setModalType('copy'); }
-                  }}
-                  onShareLink={(link) => showToast('Share link copied to clipboard')}
-                  onOpenUpload={() => setModalType('uploadFile')}
-                  showToast={showToast}
-                />
-              }
+              element={<RootRedirect isAuthenticated={isAuthenticated} />}
             />
 
             <Route
@@ -265,18 +269,14 @@ export default function App() {
                   searchQuery={searchQuery}
                   sortOrder={sortOrder}
                   setSortOrder={setSortOrder}
-                  page={page}
-                  setPage={setPage}
-                  limit={limit}
-                  setLimit={setLimit}
                   viewMode={viewMode}
                   activeTab={activeTab}
+                  clipboardItem={clipboardItem}
+                  onPaste={handlePaste}
                   setFileStats={setFileStats}
                   onPreview={(item) => { setActiveItem(item); setModalType('preview'); }}
-                  onCopy={(item) => {
-                    if (!isAuthenticated) setModalType('auth');
-                    else { setActiveItem(item); setModalType('copy'); }
-                  }}
+                  onCopy={handleCopy}
+                  onCopyClipboard={handleCopyClipboard}
                   onShareLink={(link) => showToast('Share link copied to clipboard')}
                   onOpenUpload={() => setModalType('uploadFile')}
                   showToast={showToast}
@@ -293,12 +293,10 @@ export default function App() {
                   searchQuery={searchQuery}
                   sortOrder={sortOrder}
                   setSortOrder={setSortOrder}
-                  page={page}
-                  setPage={setPage}
-                  limit={limit}
-                  setLimit={setLimit}
                   viewMode={viewMode}
                   activeTab={activeTab}
+                  clipboardItem={clipboardItem}
+                  onPaste={handlePaste}
                   setCurrentFolder={setCurrentFolder}
                   setFolderPath={setFolderPath}
                   folderPath={folderPath}
@@ -309,6 +307,8 @@ export default function App() {
                   onRename={(item, isFolder) => { setActiveItem(item); setActiveIsFolder(isFolder); setModalType('rename'); }}
                   onMove={(item, isFolder) => { setActiveItem(item); setActiveIsFolder(isFolder); setModalType('move'); }}
                   onDelete={(item, isFolder) => { setActiveItem(item); setActiveIsFolder(isFolder); setModalType('delete'); }}
+                  onCopy={handleCopy}
+                  onCopyClipboard={handleCopyClipboard}
                   onShareLink={(link) => showToast('Share link copied to clipboard')}
                   onOpenNewFolder={() => setModalType('createFolder')}
                   onOpenUpload={() => setModalType('uploadFile')}
@@ -326,12 +326,10 @@ export default function App() {
                   searchQuery={searchQuery}
                   sortOrder={sortOrder}
                   setSortOrder={setSortOrder}
-                  page={page}
-                  setPage={setPage}
-                  limit={limit}
-                  setLimit={setLimit}
                   viewMode={viewMode}
                   activeTab={activeTab}
+                  clipboardItem={clipboardItem}
+                  onPaste={handlePaste}
                   setCurrentFolder={setCurrentFolder}
                   setFolderPath={setFolderPath}
                   folderPath={folderPath}
@@ -342,6 +340,8 @@ export default function App() {
                   onRename={(item, isFolder) => { setActiveItem(item); setActiveIsFolder(isFolder); setModalType('rename'); }}
                   onMove={(item, isFolder) => { setActiveItem(item); setActiveIsFolder(isFolder); setModalType('move'); }}
                   onDelete={(item, isFolder) => { setActiveItem(item); setActiveIsFolder(isFolder); setModalType('delete'); }}
+                  onCopy={handleCopy}
+                  onCopyClipboard={handleCopyClipboard}
                   onShareLink={(link) => showToast('Share link copied to clipboard')}
                   onOpenNewFolder={() => setModalType('createFolder')}
                   onOpenUpload={() => setModalType('uploadFile')}
@@ -358,17 +358,14 @@ export default function App() {
                   searchQuery={searchQuery}
                   sortOrder={sortOrder}
                   setSortOrder={setSortOrder}
-                  page={page}
-                  setPage={setPage}
-                  limit={limit}
-                  setLimit={setLimit}
                   viewMode={viewMode}
+                  clipboardItem={clipboardItem}
+                  onPaste={handlePaste}
                   onOpenFolder={handleOpenFolder}
+                  onNavigateBreadcrumb={handleNavigateBreadcrumb}
                   onPreview={(item) => { setActiveItem(item); setModalType('preview'); }}
-                  onCopy={(item) => {
-                    if (!isAuthenticated) setModalType('auth');
-                    else { setActiveItem(item); setModalType('copy'); }
-                  }}
+                  onCopy={handleCopy}
+                  onCopyClipboard={handleCopyClipboard}
                   onRename={(item, isFolder) => { setActiveItem(item); setActiveIsFolder(isFolder); setModalType('rename'); }}
                   onMove={(item, isFolder) => { setActiveItem(item); setActiveIsFolder(isFolder); setModalType('move'); }}
                   onDelete={(item, isFolder) => { setActiveItem(item); setActiveIsFolder(isFolder); setModalType('delete'); }}
@@ -398,10 +395,7 @@ export default function App() {
       {modalType === 'uploadFile' && (
         <UploadFileModal
           onClose={() => setModalType(null)}
-          onUploadSuccess={(fileResponse, isSharedTarget) => {
-            showToast(`File "${fileResponse?.originalFilename || 'File'}" uploaded successfully via WebSocket!`);
-            window.dispatchEvent(new CustomEvent('reload-contents'));
-          }}
+          onUploadSuccess={handleUploadFileSuccess}
           currentFolder={currentFolder}
           initialShared={activeTab === 'shared'}
         />
@@ -429,7 +423,7 @@ export default function App() {
         <CopyModal
           item={activeItem}
           onClose={() => { setModalType(null); setActiveItem(null); }}
-          onSubmit={handleCopy}
+          onSubmit={(item, targetFolderId) => handleCopy(item, false)}
         />
       )}
 
@@ -460,46 +454,87 @@ export default function App() {
   );
 }
 
-// Sub-component for Shared Uploads Route (/ or /shared)
+// Redirect Component for / Landing Route
+function RootRedirect({ isAuthenticated }) {
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/my-files', { replace: true });
+    } else {
+      navigate('/shared', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+  return (
+    <div className="explorer-loading">
+      <div className="spinner-large"></div>
+    </div>
+  );
+}
+
+// Sub-component for Shared Uploads Route (/shared) with Append "View More" Pagination
 function SharedUploadsView({
   searchQuery,
   sortOrder,
   setSortOrder,
-  page,
-  setPage,
-  limit,
-  setLimit,
   viewMode,
   activeTab,
+  clipboardItem,
+  onPaste,
   setFileStats,
   onPreview,
   onCopy,
+  onCopyClipboard,
   onShareLink,
   onOpenUpload,
   showToast
 }) {
   const [files, setFiles] = useState([]);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(20);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (isAppend = false, targetPage = 1) => {
+    if (isAppend) setLoadingMore(true);
+    else setLoading(true);
+
     try {
-      const data = await api.getSharedFiles(searchQuery, sortOrder, page, limit);
-      setFiles(data || []);
-      const totalSize = (data || []).reduce((acc, curr) => acc + (curr.fileSize || 0), 0);
-      setFileStats({ totalFiles: (data || []).length, totalSize });
+      const data = await api.getSharedFiles(searchQuery, sortOrder, targetPage, limit);
+      const newFiles = data || [];
+
+      if (isAppend) {
+        setFiles(prev => [...prev, ...newFiles]);
+      } else {
+        setFiles(newFiles);
+      }
+
+      setHasMore(newFiles.length === limit);
+
+      const allFiles = isAppend ? [...files, ...newFiles] : newFiles;
+      const totalSize = allFiles.reduce((acc, curr) => acc + (curr.fileSize || 0), 0);
+      setFileStats({ totalFiles: allFiles.length, totalSize });
     } catch (err) {
       showToast(err.message || 'Failed to load public uploads', 'error');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
   useEffect(() => {
-    loadData();
-    window.addEventListener('reload-contents', loadData);
-    return () => window.removeEventListener('reload-contents', loadData);
-  }, [searchQuery, sortOrder, page, limit]);
+    setPage(1);
+    loadData(false, 1);
+    const handleReload = () => { setPage(1); loadData(false, 1); };
+    window.addEventListener('reload-contents', handleReload);
+    return () => window.removeEventListener('reload-contents', handleReload);
+  }, [searchQuery, sortOrder]);
+
+  const handleLoadMore = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    loadData(true, nextPage);
+  };
 
   return (
     <>
@@ -518,17 +553,19 @@ function SharedUploadsView({
         folders={[]}
         files={files}
         loading={loading}
+        loadingMore={loadingMore}
+        hasMore={hasMore}
+        onLoadMore={handleLoadMore}
         viewMode={viewMode}
         activeTab={activeTab}
         searchQuery={searchQuery}
         sortOrder={sortOrder}
         setSortOrder={setSortOrder}
-        page={page}
-        setPage={setPage}
-        limit={limit}
-        setLimit={setLimit}
+        clipboardItem={clipboardItem}
+        onPaste={onPaste}
         onPreview={onPreview}
         onCopy={onCopy}
+        onCopyClipboard={onCopyClipboard}
         onShareLink={onShareLink}
         onOpenUpload={onOpenUpload}
       />
@@ -536,18 +573,16 @@ function SharedUploadsView({
   );
 }
 
-// Sub-component for Private Vault Route (/my-files or /folder/:folderId)
+// Sub-component for Private Vault Route (/my-files or /folder/:folderId) with Append "View More" Pagination
 function PrivateVaultView({
   isAuthenticated,
   searchQuery,
   sortOrder,
   setSortOrder,
-  page,
-  setPage,
-  limit,
-  setLimit,
   viewMode,
   activeTab,
+  clipboardItem,
+  onPaste,
   setCurrentFolder,
   setFolderPath,
   folderPath,
@@ -558,6 +593,8 @@ function PrivateVaultView({
   onRename,
   onMove,
   onDelete,
+  onCopy,
+  onCopyClipboard,
   onShareLink,
   onOpenNewFolder,
   onOpenUpload,
@@ -567,50 +604,97 @@ function PrivateVaultView({
   const { folderId } = useParams();
   const [folders, setFolders] = useState([]);
   const [files, setFiles] = useState([]);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(20);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const loadData = async () => {
+  const loadData = async (isAppend = false, targetPage = 1) => {
     if (!isAuthenticated) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+
+    if (isAppend) setLoadingMore(true);
+    else setLoading(true);
+
     try {
-      const parsedFolderId = folderId ? LongOrNumber(folderId) : null;
+      const parsedFolderId = folderId ? Number(folderId) : null;
       let currFolder = null;
-      if (parsedFolderId) {
-        currFolder = await api.getFolderDetails(parsedFolderId);
-        setCurrentFolder(currFolder);
-      } else {
-        setCurrentFolder(null);
-        setFolderPath([]);
+
+      if (!isAppend) {
+        if (parsedFolderId) {
+          currFolder = await api.getFolderDetails(parsedFolderId);
+          setCurrentFolder(currFolder);
+          buildFolderPath(currFolder);
+        } else {
+          setCurrentFolder(null);
+          setFolderPath([]);
+        }
       }
 
       const [foldersData, filesData] = await Promise.all([
-        searchQuery ? [] : api.getFolders(parsedFolderId, searchQuery, sortOrder, page, limit),
-        api.getPrivateFiles(parsedFolderId, searchQuery, sortOrder, page, limit)
+        searchQuery ? [] : api.getFolders(parsedFolderId, searchQuery, sortOrder, targetPage, limit),
+        api.getPrivateFiles(parsedFolderId, searchQuery, sortOrder, targetPage, limit)
       ]);
 
-      setFolders(foldersData || []);
-      setFiles(filesData || []);
+      const newFolders = foldersData || [];
+      const newFiles = filesData || [];
 
-      const totalSize = (filesData || []).reduce((acc, curr) => acc + (curr.fileSize || 0), 0);
+      if (isAppend) {
+        setFolders(prev => [...prev, ...newFolders]);
+        setFiles(prev => [...prev, ...newFiles]);
+      } else {
+        setFolders(newFolders);
+        setFiles(newFiles);
+      }
+
+      setHasMore(newFolders.length === limit || newFiles.length === limit);
+
+      const allFiles = isAppend ? [...files, ...newFiles] : newFiles;
+      const allFolders = isAppend ? [...folders, ...newFolders] : newFolders;
+      const totalSize = allFiles.reduce((acc, curr) => acc + (curr.fileSize || 0), 0);
+
       setFileStats({
-        totalFiles: (filesData || []).length + (foldersData || []).length,
+        totalFiles: allFiles.length + allFolders.length,
         totalSize
       });
     } catch (err) {
       showToast(err.message || 'Failed to load folder contents', 'error');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
+  const buildFolderPath = (folder) => {
+    if (!folder) {
+      setFolderPath([]);
+      return;
+    }
+    const chain = [];
+    let current = folder;
+    while (current) {
+      chain.unshift({ id: current.id, name: current.name });
+      current = current.parentFolder;
+    }
+    setFolderPath(chain);
+  };
+
   useEffect(() => {
-    loadData();
-    window.addEventListener('reload-contents', loadData);
-    return () => window.removeEventListener('reload-contents', loadData);
-  }, [folderId, isAuthenticated, searchQuery, sortOrder, page, limit]);
+    setPage(1);
+    loadData(false, 1);
+    const handleReload = () => { setPage(1); loadData(false, 1); };
+    window.addEventListener('reload-contents', handleReload);
+    return () => window.removeEventListener('reload-contents', handleReload);
+  }, [folderId, isAuthenticated, searchQuery, sortOrder]);
+
+  const handleLoadMore = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    loadData(true, nextPage);
+  };
 
   if (!isAuthenticated) {
     return (
@@ -632,25 +716,29 @@ function PrivateVaultView({
       <Breadcrumbs
         folderPath={folderPath}
         onNavigate={onNavigateBreadcrumb}
+        isPublic={false}
       />
       <Explorer
         folders={folders}
         files={files}
         loading={loading}
+        loadingMore={loadingMore}
+        hasMore={hasMore}
+        onLoadMore={handleLoadMore}
         viewMode={viewMode}
         activeTab={activeTab}
         searchQuery={searchQuery}
         sortOrder={sortOrder}
         setSortOrder={setSortOrder}
-        page={page}
-        setPage={setPage}
-        limit={limit}
-        setLimit={setLimit}
+        clipboardItem={clipboardItem}
+        onPaste={onPaste}
         onOpenFolder={onOpenFolder}
         onPreview={onPreview}
         onRename={onRename}
         onMove={onMove}
         onDelete={onDelete}
+        onCopy={onCopy}
+        onCopyClipboard={onCopyClipboard}
         onShareLink={onShareLink}
         onOpenNewFolder={onOpenNewFolder}
         onOpenUpload={onOpenUpload}
@@ -664,14 +752,14 @@ function PublicFolderShareView({
   searchQuery,
   sortOrder,
   setSortOrder,
-  page,
-  setPage,
-  limit,
-  setLimit,
   viewMode,
+  clipboardItem,
+  onPaste,
   onOpenFolder,
+  onNavigateBreadcrumb,
   onPreview,
   onCopy,
+  onCopyClipboard,
   onRename,
   onMove,
   onDelete,
@@ -680,6 +768,7 @@ function PublicFolderShareView({
 }) {
   const { folderId } = useParams();
   const [folderInfo, setFolderInfo] = useState(null);
+  const [folderPath, setFolderPath] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
@@ -687,6 +776,9 @@ function PublicFolderShareView({
     try {
       const data = await api.getPublicFolderDetails(folderId);
       setFolderInfo(data);
+      if (data) {
+        setFolderPath([{ id: data.id, name: data.name }]);
+      }
     } catch (err) {
       showToast(err.message || 'Folder not found or is private', 'error');
     } finally {
@@ -723,15 +815,11 @@ function PublicFolderShareView({
 
   return (
     <>
-      <div className="home-hero-banner">
-        <div className="hero-content">
-          <div className="d-flex align-items-center gap-2">
-            <Globe size={24} className="text-success" />
-            <h2>Public Folder: {folderInfo.name}</h2>
-          </div>
-          <p>Shared folder accessible to anyone with this link.</p>
-        </div>
-      </div>
+      <Breadcrumbs
+        folderPath={folderPath}
+        onNavigate={onNavigateBreadcrumb}
+        isPublic={true}
+      />
 
       <Explorer
         folders={folderInfo.subFolders || []}
@@ -742,13 +830,12 @@ function PublicFolderShareView({
         searchQuery={searchQuery}
         sortOrder={sortOrder}
         setSortOrder={setSortOrder}
-        page={page}
-        setPage={setPage}
-        limit={limit}
-        setLimit={setLimit}
+        clipboardItem={clipboardItem}
+        onPaste={onPaste}
         onOpenFolder={onOpenFolder}
         onPreview={onPreview}
         onCopy={onCopy}
+        onCopyClipboard={onCopyClipboard}
         onRename={folderInfo.isOwner ? onRename : null}
         onMove={folderInfo.isOwner ? onMove : null}
         onDelete={folderInfo.isOwner ? onDelete : null}
@@ -756,8 +843,4 @@ function PublicFolderShareView({
       />
     </>
   );
-}
-
-function LongOrNumber(val) {
-  return Number(val);
 }

@@ -148,6 +148,15 @@ export const api = {
     return await handleResponse(res);
   },
 
+  async copyFolder(folderId, targetParentId = null) {
+    const res = await fetch(`${API_BASE_URL}/folders/copy/${folderId}`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ targetParentId }),
+    });
+    return await handleResponse(res);
+  },
+
   async deleteFolder(folderId) {
     const res = await fetch(`${API_BASE_URL}/folders/${folderId}`, {
       method: 'DELETE',

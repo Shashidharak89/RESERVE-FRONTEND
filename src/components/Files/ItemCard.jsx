@@ -30,6 +30,7 @@ export default function ItemCard({
   onRename,
   onMove,
   onCopy,
+  onCopyClipboard,
   onDelete,
   onShareLink,
   isShared = false
@@ -160,9 +161,14 @@ export default function ItemCard({
                   )}
                 </>
               )}
-              {isShared && !isFolder && onCopy && (
-                <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onCopy(item); }}>
+              {isShared && onCopy && (
+                <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onCopy(item, isFolder); }}>
                   <Copy size={15} /> Copy to Vault
+                </button>
+              )}
+              {!isShared && onCopyClipboard && (
+                <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onCopyClipboard(item, isFolder); }}>
+                  <Copy size={15} /> Copy
                 </button>
               )}
               {canEdit && (
@@ -170,7 +176,7 @@ export default function ItemCard({
                   <div className="menu-divider"></div>
                   {onRename && (
                     <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onRename(item, isFolder); }}>
-                      <Edit2 size={15} /> Rename
+                      <Edit2 size={15} /> Edit
                     </button>
                   )}
                   {onMove && (
@@ -242,9 +248,14 @@ export default function ItemCard({
                   )}
                 </>
               )}
-              {isShared && !isFolder && onCopy && (
-                <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onCopy(item); }}>
+              {isShared && onCopy && (
+                <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onCopy(item, isFolder); }}>
                   <Copy size={15} /> Copy to Vault
+                </button>
+              )}
+              {!isShared && onCopyClipboard && (
+                <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onCopyClipboard(item, isFolder); }}>
+                  <Copy size={15} /> Copy
                 </button>
               )}
               {canEdit && (
@@ -252,7 +263,7 @@ export default function ItemCard({
                   <div className="menu-divider"></div>
                   {onRename && (
                     <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onRename(item, isFolder); }}>
-                      <Edit2 size={15} /> Rename
+                      <Edit2 size={15} /> Edit
                     </button>
                   )}
                   {onMove && (

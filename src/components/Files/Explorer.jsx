@@ -1,26 +1,28 @@
 import React from 'react';
 import ItemCard from './ItemCard';
-import { Folder, File, FolderPlus, Upload, SearchX, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Folder, File, FolderPlus, Upload, SearchX, ArrowUpDown, ClipboardPaste, ChevronDown } from 'lucide-react';
 
 export default function Explorer({
   folders = [],
   files = [],
   loading = false,
+  loadingMore = false,
+  hasMore = false,
+  onLoadMore,
   viewMode = 'grid',
   activeTab = 'private',
   searchQuery = '',
   sortOrder = 3,
   setSortOrder,
-  page = 1,
-  setPage,
-  limit = 20,
-  setLimit,
+  clipboardItem = null,
+  onPaste,
   onOpenFolder,
   onPreview,
   onRename,
   onMove,
   onDelete,
   onCopy,
+  onCopyClipboard,
   onShareLink,
   onOpenNewFolder,
   onOpenUpload
@@ -39,12 +41,20 @@ export default function Explorer({
 
   return (
     <div className="explorer-container">
-      {/* Controls Bar: Sort order selector & Item count */}
+      {/* Controls Bar: Sort order selector & Clipboard paste button */}
       <div className="explorer-toolbar">
         <div className="toolbar-info">
           <span className="items-count">
             {folders.length + files.length} items
           </span>
+
+          {/* Paste button when an item is copied */}
+          {clipboardItem && onPaste && (
+            <button className="btn-primary paste-btn" onClick={onPaste}>
+              <ClipboardPaste size={16} />
+              <span>Paste "{clipboardItem.item.name || clipboardItem.item.originalFilename}"</span>
+            </button>
+          )}
         </div>
 
         <div className="toolbar-actions">
@@ -119,6 +129,8 @@ export default function Explorer({
                     onRename={onRename}
                     onMove={onMove}
                     onDelete={onDelete}
+                    onCopy={onCopy}
+                    onCopyClipboard={onCopyClipboard}
                     onShareLink={onShareLink}
                     isShared={isShared}
                   />
@@ -143,6 +155,7 @@ export default function Explorer({
                     onMove={onMove}
                     onDelete={onDelete}
                     onCopy={onCopy}
+                    onCopyClipboard={onCopyClipboard}
                     onShareLink={onShareLink}
                     isShared={isShared}
                   />
@@ -151,24 +164,27 @@ export default function Explorer({
             </div>
           )}
 
-          {/* Pagination bar */}
-          <div className="pagination-bar">
-            <button
-              className="pagination-btn"
-              disabled={page <= 1}
-              onClick={() => setPage && setPage(page - 1)}
-            >
-              <ChevronLeft size={16} /> Previous
-            </button>
-            <span className="pagination-info">Page {page}</span>
-            <button
-              className="pagination-btn"
-              disabled={(folders.length + files.length) < limit}
-              onClick={() => setPage && setPage(page + 1)}
-            >
-              Next <ChevronRight size={16} />
-            </button>
-          </div>
+          {/* View More Append Button */}
+          {hasMore && onLoadMore && (
+            <div className="load-more-container">
+              <button
+                className="btn-secondary load-more-btn"
+                onClick={onLoadMore}
+                disabled={loadingMore}
+              >
+                {loadingMore ? (
+                  <>
+                    <span className="spinner"></span> Loading more...
+                  </>
+                ) : (
+                  <>
+                    <span>View More</span>
+                    <ChevronDown size={18} />
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>
