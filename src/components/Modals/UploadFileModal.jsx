@@ -1,12 +1,26 @@
-import React, { useState } from 'react';
-import { X, Upload, File, Share2, Lock, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Upload, File, Share2, Lock, CheckCircle2, Zap } from 'lucide-react';
+import { uploadFileViaWebSocket } from '../../services/websocketUpload';
 
-export default function UploadFileModal({ onClose, onUpload, currentFolder, initialShared = false }) {
+export default function UploadFileModal({ onClose, onUploadSuccess, currentFolder, initialShared = false }) {
   const [file, setFile] = useState(null);
   const [isShared, setIsShared] = useState(initialShared);
-  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [dragActive, setDragActive] = useState(false);
+
+  // WebSocket progress state
+  const [progress, setProgress] = useState(0);
+  const [bytesUploaded, setBytesUploaded] = useState(0);
+  const [totalBytes, setTotalBytes] = useState(0);
+  const [statusText, setStatusText] = useState('');
+  const [cancelUploadFn, setCancelUploadFn] = useState(null);
+
+  useEffect(() => {
+    return () => {
+      if (cancelUploadFn) cancelUploadFn();
+    };
+  }, [cancelUploadFn]);
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -33,21 +47,52 @@ export default function UploadFileModal({ onClose, onUpload, currentFolder, init
     }
   };
 
-  const handleSubmit = async (e) => {
+  const formatMB = (bytes) => {
+    if (!bytes) return '0 MB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  };
+
+  const handleSubmit = (e) => {
     e.preventDefault();
     if (!file) return;
 
-    setLoading(true);
+    setUploading(true);
     setError('');
+    setProgress(0);
+    setBytesUploaded(0);
+    setTotalBytes(file.size);
+    setStatusText('Connecting WebSocket endpoint...');
 
-    try {
-      await onUpload(file, isShared);
-      onClose();
-    } catch (err) {
-      setError(err.message || 'File upload failed');
-    } finally {
-      setLoading(false);
-    }
+    const cancelFn = uploadFileViaWebSocket(file, {
+      isShared,
+      folderId: currentFolder ? currentFolder.id : null,
+      onProgress: (p) => {
+        setProgress(p.percentage);
+        setBytesUploaded(p.bytesUploaded);
+        setTotalBytes(p.totalBytes);
+
+        if (p.percentage < 100) {
+          setStatusText(`Uploading chunk ${p.chunkIndex + 1} of ${p.totalChunks} over WebSocket...`);
+        } else {
+          setStatusText('Finalizing Cloudinary & database processing...');
+        }
+      },
+      onComplete: (fileResponse) => {
+        setProgress(100);
+        setStatusText('Upload Complete!');
+        setTimeout(() => {
+          if (onUploadSuccess) onUploadSuccess(fileResponse, isShared);
+          onClose();
+        }, 600);
+      },
+      onError: (errMessage) => {
+        setError(errMessage);
+        setUploading(false);
+        setStatusText('');
+      }
+    });
+
+    setCancelUploadFn(() => cancelFn);
   };
 
   return (
@@ -55,10 +100,10 @@ export default function UploadFileModal({ onClose, onUpload, currentFolder, init
       <div className="modal-box modal-lg">
         <div className="modal-header">
           <div className="modal-title">
-            <Upload size={20} />
-            <h3>Upload File to Cloudinary</h3>
+            <Zap size={20} className="text-warning" />
+            <h3>WebSocket File Upload</h3>
           </div>
-          <button className="modal-close" onClick={onClose}>
+          <button className="modal-close" onClick={onClose} disabled={uploading}>
             <X size={18} />
           </button>
         </div>
@@ -68,16 +113,17 @@ export default function UploadFileModal({ onClose, onUpload, currentFolder, init
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
             <div className="destination-selector">
-              <label className="section-label">Storage Location</label>
+              <label className="section-label">Storage Destination</label>
               <div className="destination-options">
                 <button
                   type="button"
                   className={`dest-option ${!isShared ? 'active' : ''}`}
                   onClick={() => setIsShared(false)}
+                  disabled={uploading}
                 >
                   <Lock size={18} />
                   <div>
-                    <strong>Private Storage</strong>
+                    <strong>Private Vault</strong>
                     <p>{currentFolder ? `Uploading to: ${currentFolder.name}` : 'Uploading to My Files root'}</p>
                   </div>
                 </button>
@@ -86,68 +132,104 @@ export default function UploadFileModal({ onClose, onUpload, currentFolder, init
                   type="button"
                   className={`dest-option ${isShared ? 'active' : ''}`}
                   onClick={() => setIsShared(true)}
+                  disabled={uploading}
                 >
                   <Share2 size={18} />
                   <div>
-                    <strong>Shared Uploads Area</strong>
+                    <strong>Public Shared Area</strong>
                     <p>Visible to all registered users</p>
                   </div>
                 </button>
               </div>
             </div>
 
-            <div
-              className={`dropzone ${dragActive ? 'drag-active' : ''} ${file ? 'has-file' : ''}`}
-              onDragEnter={handleDrag}
-              onDragLeave={handleDrag}
-              onDragOver={handleDrag}
-              onDrop={handleDrop}
-            >
-              <input
-                type="file"
-                id="file-upload-input"
-                className="file-input-hidden"
-                onChange={handleFileChange}
-              />
+            {!uploading ? (
+              <div
+                className={`dropzone ${dragActive ? 'drag-active' : ''} ${file ? 'has-file' : ''}`}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+              >
+                <input
+                  type="file"
+                  id="file-upload-input"
+                  className="file-input-hidden"
+                  onChange={handleFileChange}
+                />
 
-              {!file ? (
-                <label htmlFor="file-upload-input" className="dropzone-label">
-                  <div className="dropzone-icon">
-                    <Upload size={32} />
+                {!file ? (
+                  <label htmlFor="file-upload-input" className="dropzone-label">
+                    <div className="dropzone-icon">
+                      <Upload size={32} />
+                    </div>
+                    <p className="drop-title">Drag & drop your file here, or click to browse</p>
+                    <p className="drop-sub">Chunked WebSocket Upload with Real-Time Progress</p>
+                  </label>
+                ) : (
+                  <div className="selected-file-info">
+                    <CheckCircle2 size={32} className="text-success" />
+                    <div>
+                      <h4 className="file-name">{file.name}</h4>
+                      <p className="file-meta">
+                        {formatMB(file.size)} • {file.type || 'Unknown file format'}
+                      </p>
+                    </div>
+                    <button type="button" className="btn-icon" onClick={() => setFile(null)}>
+                      <X size={18} />
+                    </button>
                   </div>
-                  <p className="drop-title">Drag & drop your file here, or browse</p>
-                  <p className="drop-sub">Supports Images, PDFs, Documents, ZIPs, Videos & Raw files</p>
-                </label>
-              ) : (
-                <div className="selected-file-info">
-                  <CheckCircle2 size={32} className="text-success" />
-                  <div>
-                    <h4 className="file-name">{file.name}</h4>
-                    <p className="file-meta">
-                      {(file.size / (1024 * 1024)).toFixed(2)} MB • {file.type || 'Unknown type'}
-                    </p>
+                )}
+              </div>
+            ) : (
+              /* Real-time WebSocket Progress Bar Display */
+              <div className="ws-progress-container">
+                <div className="ws-progress-header">
+                  <div className="ws-file-meta">
+                    <File size={24} className="text-primary" />
+                    <div>
+                      <h4 className="ws-file-name">{file?.name}</h4>
+                      <p className="ws-status-text">{statusText}</p>
+                    </div>
                   </div>
-                  <button type="button" className="btn-icon" onClick={() => setFile(null)}>
-                    <X size={18} />
-                  </button>
+                  <div className="ws-percentage-badge">
+                    {progress}%
+                  </div>
                 </div>
-              )}
-            </div>
+
+                <div className="ws-progress-track">
+                  <div
+                    className="ws-progress-fill"
+                    style={{ width: `${progress}%` }}
+                  ></div>
+                </div>
+
+                <div className="ws-progress-footer">
+                  <span>{formatMB(bytesUploaded)} / {formatMB(totalBytes)}</span>
+                  <span className="ws-socket-badge">WebSocket Stream</span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={onClose} disabled={loading}>
-              Cancel
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                if (cancelUploadFn) cancelUploadFn();
+                onClose();
+              }}
+            >
+              {uploading ? 'Cancel Upload' : 'Close'}
             </button>
-            <button type="submit" className="btn-primary" disabled={loading || !file}>
-              {loading ? (
-                <>
-                  <span className="spinner"></span> Uploading...
-                </>
-              ) : (
-                'Start Upload'
-              )}
-            </button>
+
+            {!uploading && (
+              <button type="submit" className="btn-primary" disabled={!file}>
+                <Zap size={16} />
+                <span>Start WebSocket Upload</span>
+              </button>
+            )}
           </div>
         </form>
       </div>

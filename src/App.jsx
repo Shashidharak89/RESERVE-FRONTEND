@@ -398,7 +398,10 @@ export default function App() {
       {modalType === 'uploadFile' && (
         <UploadFileModal
           onClose={() => setModalType(null)}
-          onUpload={handleUploadFile}
+          onUploadSuccess={(fileResponse, isSharedTarget) => {
+            showToast(`File "${fileResponse?.originalFilename || 'File'}" uploaded successfully via WebSocket!`);
+            window.dispatchEvent(new CustomEvent('reload-contents'));
+          }}
           currentFolder={currentFolder}
           initialShared={activeTab === 'shared'}
         />
