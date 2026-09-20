@@ -68,7 +68,19 @@ export default function ItemCard({
     const mime = file.mimeType || '';
     const name = (file.originalFilename || '').toLowerCase();
 
-    if (mime.startsWith('image/')) return <ImageIcon size={28} className="icon-img" />;
+    if (mime.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/.test(name)) {
+      if (file.cloudinaryUrl) {
+        return (
+          <img
+            src={file.cloudinaryUrl}
+            alt={name}
+            className="item-thumbnail-img"
+            style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '8px' }}
+          />
+        );
+      }
+      return <ImageIcon size={28} className="icon-img" />;
+    }
     if (mime.startsWith('video/')) return <Film size={28} className="icon-video" />;
     if (mime.startsWith('audio/')) return <Music size={28} className="icon-audio" />;
     if (mime.includes('pdf')) return <FileText size={28} className="icon-pdf" />;
@@ -98,6 +110,21 @@ export default function ItemCard({
       onShareLink(link);
     } else {
       alert(`Public share link copied to clipboard:\n${link}`);
+    }
+  };
+
+  const handleCopyCloudinaryUrl = (e) => {
+    e.stopPropagation();
+    setShowMenu(false);
+    const fileUrl = item.cloudinaryUrl || api.getDownloadUrl(item.id, isShared);
+    if (fileUrl) {
+      navigator.clipboard.writeText(fileUrl);
+      if (onShareLink) {
+        onShareLink('Cloudinary URL copied to clipboard!');
+      }
+    }
+    if (onCopyClipboard) {
+      onCopyClipboard(item, isFolder);
     }
   };
 
@@ -157,6 +184,9 @@ export default function ItemCard({
                 <>
                   <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onPreview && onPreview(item); }}>
                     <Eye size={15} /> Preview
+                  </button>
+                  <button className="menu-item" onClick={handleCopyCloudinaryUrl}>
+                    <Copy size={15} /> Copy Cloudinary URL
                   </button>
                   <button className="menu-item" onClick={handleDownload}>
                     <Download size={15} /> Download
@@ -258,6 +288,9 @@ export default function ItemCard({
                 <>
                   <button className="menu-item" onClick={(e) => { e.stopPropagation(); setShowMenu(false); onPreview && onPreview(item); }}>
                     <Eye size={15} /> Preview
+                  </button>
+                  <button className="menu-item" onClick={handleCopyCloudinaryUrl}>
+                    <Copy size={15} /> Copy Cloudinary URL
                   </button>
                   <button className="menu-item" onClick={handleDownload}>
                     <Download size={15} /> Download

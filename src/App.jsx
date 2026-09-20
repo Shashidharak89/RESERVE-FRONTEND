@@ -499,7 +499,7 @@ export default function App() {
 
       {modalType === 'preview' && activeItem && (
         <PreviewModal
-          file={activeItem}
+          item={activeItem}
           onClose={() => setModalType(null)}
           isShared={activeTab === 'shared'}
         />
