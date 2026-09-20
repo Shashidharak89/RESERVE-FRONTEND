@@ -106,10 +106,11 @@ export default function ItemCard({
     setShowMenu(false);
     const link = `${window.location.origin}/share/folder/${item.id}`;
     navigator.clipboard.writeText(link);
+    const msg = `Public link for "${item.name}" copied to clipboard! Anyone can access it without logging in.`;
     if (onShareLink) {
-      onShareLink(link);
+      onShareLink(msg);
     } else {
-      alert(`Public share link copied to clipboard:\n${link}`);
+      alert(msg);
     }
   };
 
@@ -200,7 +201,7 @@ export default function ItemCard({
                   </button>
                   {item.visibility === 'PUBLIC' && (
                     <button className="menu-item" onClick={handleCopyShareLink}>
-                      <Share2 size={15} /> Copy Share Link
+                      <Share2 size={15} /> Copy Public Link
                     </button>
                   )}
                 </>
@@ -304,7 +305,7 @@ export default function ItemCard({
                   </button>
                   {item.visibility === 'PUBLIC' && (
                     <button className="menu-item" onClick={handleCopyShareLink}>
-                      <Share2 size={15} /> Copy Share Link
+                      <Share2 size={15} /> Copy Public Link
                     </button>
                   )}
                 </>

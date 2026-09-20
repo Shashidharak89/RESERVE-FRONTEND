@@ -279,6 +279,7 @@ export function PrivateVaultView({
         folderPath={folderPath}
         onNavigate={onNavigateBreadcrumb}
         isPublic={false}
+        onShareLink={onShareLink}
       />
       <Explorer
         folders={folders}
@@ -392,6 +393,7 @@ export function PublicFolderShareView({
         folderPath={folderPath}
         onNavigate={onNavigateBreadcrumb}
         isPublic={true}
+        onShareLink={onShareLink}
       />
 
       <Explorer
