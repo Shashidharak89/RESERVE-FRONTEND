@@ -3,7 +3,7 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from './components/Layout/Navbar';
 import RightSidebar from './components/Layout/RightSidebar';
 import Footer from './components/Layout/Footer';
-import AuthModal from './components/Auth/AuthModal';
+import AuthPage from './components/Auth/AuthModal';
 import CreateFolderModal from './components/Modals/CreateFolderModal';
 import UploadFileModal from './components/Modals/UploadFileModal';
 import RenameModal from './components/Modals/RenameModal';
@@ -44,6 +44,7 @@ export default function App() {
   const location = useLocation();
 
   // Determine active tab/view based on current URL path
+  const isAuthPage = location.pathname === '/auth';
   const isPublicSharePage = location.pathname.startsWith('/share/folder/');
   const isPrivatePage = location.pathname.startsWith('/my-files') || location.pathname.startsWith('/folder/');
   const activeTab = isPrivatePage ? 'private' : isPublicSharePage ? 'public-share' : 'shared';
@@ -85,7 +86,7 @@ export default function App() {
   const handleTabChange = (tab) => {
     if (tab === 'private') {
       if (!isAuthenticated) {
-        setModalType('auth');
+        navigate('/auth');
         return;
       }
       navigate('/my-files');
@@ -143,7 +144,7 @@ export default function App() {
   const handlePaste = async () => {
     if (!clipboardItems || clipboardItems.length === 0) return;
     if (!isAuthenticated) {
-      setModalType('auth');
+      navigate('/auth');
       return;
     }
 
@@ -189,7 +190,7 @@ export default function App() {
   // Modal actions
   const handleCreateFolder = async (folderName, visibility) => {
     if (!isAuthenticated) {
-      setModalType('auth');
+      navigate('/auth');
       return;
     }
     const parentId = currentFolder ? currentFolder.id : null;
@@ -228,7 +229,7 @@ export default function App() {
   // Copy public folder/file into private vault (recursive for folders)
   const handleCopy = async (item, isFolder) => {
     if (!isAuthenticated) {
-      setModalType('auth');
+      navigate('/auth');
       return;
     }
     try {
@@ -257,12 +258,25 @@ export default function App() {
     window.dispatchEvent(new CustomEvent('reload-contents'));
   };
 
+  const handleAuthSuccess = () => {
+    setModalType(null);
+    checkAuth();
+    navigate('/my-files');
+  };
+
   if (authChecking) {
     return (
       <div className="app-splash">
         <div className="spinner-large"></div>
         <h2>Initializing Reserve...</h2>
       </div>
+    );
+  }
+
+  // Auth page is a standalone full-page route — no Navbar, no sidebar
+  if (isAuthPage) {
+    return (
+      <AuthPage onAuthSuccess={handleAuthSuccess} />
     );
   }
 
@@ -276,10 +290,10 @@ export default function App() {
         setViewMode={setViewMode}
         onOpenUpload={() => setModalType('uploadFile')}
         onOpenNewFolder={() => {
-          if (!isAuthenticated) setModalType('auth');
+          if (!isAuthenticated) navigate('/auth');
           else setModalType('createFolder');
         }}
-        onOpenAuth={() => setModalType('auth')}
+        onOpenAuth={() => navigate('/auth')}
         activeTab={activeTab}
         onToggleRightSidebar={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
       />
@@ -354,7 +368,7 @@ export default function App() {
                   onShareLink={(link) => showToast('Share link copied to clipboard')}
                   onOpenNewFolder={() => setModalType('createFolder')}
                   onOpenUpload={() => setModalType('uploadFile')}
-                  onOpenAuth={() => setModalType('auth')}
+                  onOpenAuth={() => navigate('/auth')}
                   showToast={showToast}
                 />
               }
@@ -389,7 +403,7 @@ export default function App() {
                   onShareLink={(link) => showToast('Share link copied to clipboard')}
                   onOpenNewFolder={() => setModalType('createFolder')}
                   onOpenUpload={() => setModalType('uploadFile')}
-                  onOpenAuth={() => setModalType('auth')}
+                  onOpenAuth={() => navigate('/auth')}
                   showToast={showToast}
                 />
               }
@@ -419,17 +433,17 @@ export default function App() {
                 />
               }
             />
-          </Routes>
 
-          <Footer />
+            {/* Catch-all: redirect to home */}
+            <Route path="*" element={<RootRedirect isAuthenticated={isAuthenticated} />} />
+          </Routes>
         </main>
       </div>
 
-      {/* Modals */}
-      {modalType === 'auth' && (
-        <AuthModal onAuthSuccess={() => { setModalType(null); checkAuth(); }} />
-      )}
+      {/* Footer always at the bottom, full width, outside main-viewport */}
+      <Footer />
 
+      {/* Modals */}
       {modalType === 'createFolder' && (
         <CreateFolderModal
           onClose={() => setModalType(null)}
