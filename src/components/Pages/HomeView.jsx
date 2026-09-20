@@ -182,10 +182,17 @@ export function PrivateVaultView({
         if (parsedFolderId) {
           currFolder = await api.getFolderDetails(parsedFolderId);
           setCurrentFolder(currFolder);
-          buildFolderPath(currFolder);
+          // Only rebuild path from API if folderPath is empty (direct URL access / page refresh).
+          // When user navigates via UI, App.jsx handles the stack-based push.
+          if (folderPath.length === 0) {
+            buildFolderPath(currFolder);
+          }
         } else {
           setCurrentFolder(null);
-          setFolderPath([]);
+          // At root — only clear path if not already managed by App.jsx
+          if (folderPath.length > 0 && !folderId) {
+            setFolderPath([]);
+          }
         }
       }
 
@@ -315,6 +322,8 @@ export function PublicFolderShareView({
   onCancelCopy,
   onOpenFolder,
   onNavigateBreadcrumb,
+  folderPath = [],
+  setFolderPath,
   onPreview,
   onCopy,
   onCopyClipboard,
@@ -326,7 +335,6 @@ export function PublicFolderShareView({
 }) {
   const { folderId } = useParams();
   const [folderInfo, setFolderInfo] = useState(null);
-  const [folderPath, setFolderPath] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
@@ -334,8 +342,15 @@ export function PublicFolderShareView({
     try {
       const data = await api.getPublicFolderDetails(folderId);
       setFolderInfo(data);
-      if (data) {
-        setFolderPath([{ id: data.id, name: data.name }]);
+      if (data && folderPath.length === 0 && setFolderPath) {
+        // Fallback: rebuild path from API when directly accessing a URL (page refresh)
+        const chain = [];
+        let current = data;
+        while (current) {
+          chain.unshift({ id: current.id, name: current.name });
+          current = current.parentFolder;
+        }
+        setFolderPath(chain);
       }
     } catch (err) {
       showToast(err.message || 'Folder not found or is private', 'error');

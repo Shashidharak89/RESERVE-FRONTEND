@@ -94,9 +94,14 @@ export default function App() {
       navigate('/shared');
     }
     setSearchQuery('');
+    setFolderPath([]);
+    setCurrentFolder(null);
   };
 
   const handleOpenFolder = (folder) => {
+    // Push folder onto the breadcrumb stack
+    setFolderPath(prev => [...prev, { id: folder.id, name: folder.name }]);
+
     if (folder.visibility === 'PUBLIC' && activeTab !== 'private') {
       navigate(`/share/folder/${folder.id}`);
     } else {
@@ -107,9 +112,20 @@ export default function App() {
 
   const handleNavigateBreadcrumb = (targetFolder) => {
     if (!targetFolder) {
+      // Clicked root ("My Files" or "Shared Vault") — clear the stack
+      setFolderPath([]);
+      setCurrentFolder(null);
       if (activeTab === 'private') navigate('/my-files');
       else navigate('/shared');
     } else {
+      // Clicked a specific folder in the breadcrumb — truncate stack to that folder
+      setFolderPath(prev => {
+        const idx = prev.findIndex(f => f.id === targetFolder.id);
+        if (idx !== -1) {
+          return prev.slice(0, idx + 1);
+        }
+        return prev;
+      });
       navigate(`/folder/${targetFolder.id}`);
     }
     setSearchQuery('');
@@ -422,6 +438,8 @@ export default function App() {
                   onCancelCopy={handleCancelCopy}
                   onOpenFolder={handleOpenFolder}
                   onNavigateBreadcrumb={handleNavigateBreadcrumb}
+                  folderPath={folderPath}
+                  setFolderPath={setFolderPath}
                   onPreview={(item) => { setActiveItem(item); setModalType('preview'); }}
                   onCopy={handleCopy}
                   onCopyClipboard={handleCopyClipboard}
